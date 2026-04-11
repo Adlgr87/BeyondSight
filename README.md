@@ -10,6 +10,10 @@ pinned: false
 
 # BeyondSight
 
+![Build Status](https://img.shields.io/github/actions/workflow/status/Adlgr87/BeyondSight/ci.yml?branch=main)
+![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
+![License: PPL](https://img.shields.io/badge/License-Prosperity_3.0.0-indigo.svg)
+
 Simulador híbrido de dinámica social — Núcleo numérico + LLM como selector de régimen.
 
 BeyondSight cierra la brecha entre los modelos matemáticos clásicos de formación de opinión y la flexibilidad contextual de los Modelos de Lenguaje de Gran Escala (LLMs).
