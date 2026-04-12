@@ -203,16 +203,19 @@ def _amplitud(cfg: dict) -> float:
 def _aplicar_sesgo_confirmacion(propaganda: float, opinion: float,
                                  cfg: dict) -> float:
     """
-    Reduce el peso de información contraria a la posición actual.
+    Reduces the weight of information contrary to the current position.
 
-    Si propaganda y opinión apuntan en la misma dirección desde el neutro
-    → propaganda llega con peso completo.
-    Si van en direcciones opuestas
-    → propaganda se atenúa según sesgo_confirmacion ∈ [0, 1].
+    If propaganda and opinion point in the same direction from the neutral point,
+    the propaganda keeps its full weight. If they are in opposite directions,
+    the propaganda is attenuated according to the confirmation bias parameter.
 
-    Parámetro: cfg["sesgo_confirmacion"]
-      0.0 = sin sesgo (modelo clásico)
-      1.0 = sesgo total (información contraria completamente ignorada)
+    Args:
+        propaganda: The incoming narrative/propaganda value.
+        opinion: The current opinion of the agent/system.
+        cfg: Configuration dictionary containing "sesgo_confirmacion".
+
+    Returns:
+        The attenuated propaganda value.
     """
     sesgo   = float(np.clip(cfg.get("sesgo_confirmacion", 0.0), 0.0, 1.0))
     neutro  = _neutro(cfg)
@@ -220,12 +223,12 @@ def _aplicar_sesgo_confirmacion(propaganda: float, opinion: float,
     if sesgo == 0.0:
         return propaganda
 
-    # Detectar si van en direcciones opuestas desde el neutro
+    # Detect if they are in opposite directions from neutral
     misma_dir = (opinion - neutro) * (propaganda - neutro) >= 0
     if misma_dir:
         return propaganda
     else:
-        # Atenuación proporcional al sesgo
+        # Attenuation proportional to bias
         return propaganda * (1.0 - sesgo)
 
 
@@ -235,15 +238,19 @@ def _aplicar_sesgo_confirmacion(propaganda: float, opinion: float,
 # Referencia: Axelrod (1997), Flache et al. (2017).
 # ============================================================
 
-def _actualizar_pesos_homofilia(estado: dict, cfg: dict) -> tuple[float, float]:
+def _actualizar_pesos_homofilia(estado: dict, cfg: dict) -> float:
     """
-    Calcula nuevos pesos de influencia para grupos A y B basados en
-    la similitud de opinión con el estado actual.
+    Calculates new influence weights based on opinion similarity.
 
-    Cuanto más similar la opinión de un grupo a la del sistema,
-    mayor influencia recibe (homofilia positiva).
+    The more similar a group's opinion is to the system's state,
+    the more influence it gains (selective exposure/homophily).
 
-    Retorna: (peso_grupo_a, peso_grupo_b) normalizados a suma=1
+    Args:
+        estado: Current state of the simulation.
+        cfg: Configuration dictionary containing "homofilia_tasa".
+
+    Returns:
+        The updated group identity/belonging intensity.
     """
     tasa     = float(np.clip(cfg.get("homofilia_tasa", 0.05), 0.0, 0.3))
     opinion  = estado["opinion"]
@@ -251,12 +258,12 @@ def _actualizar_pesos_homofilia(estado: dict, cfg: dict) -> tuple[float, float]:
     op_b     = estado.get("opinion_grupo_b", 0.3)
     perten   = estado.get("pertenencia_grupo", 0.6)
 
-    # Similitud = 1 - distancia normalizada al rango
+    # Similarity = 1 - normalized distance to range
     amp      = _amplitud(cfg)
     sim_a    = 1.0 - abs(opinion - op_a) / amp
     sim_b    = 1.0 - abs(opinion - op_b) / amp
 
-    # Actualizar pertenencia hacia el grupo más similar
+    # Update belonging towards the most similar group
     nuevo_perten = perten + tasa * (sim_a - sim_b)
     nuevo_perten = float(np.clip(nuevo_perten, 0.1, 0.9))
     return nuevo_perten
@@ -268,8 +275,16 @@ def _actualizar_pesos_homofilia(estado: dict, cfg: dict) -> tuple[float, float]:
 
 def regla_lineal(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    Cambio proporcional a opinión y propaganda.
-    En [-1,1]: propaganda negativa genera rechazo activo.
+    Linear transition rule based on Friedkin-Johnsen model.
+    Opinion changes proportionally to current opinion and propaganda.
+
+    Args:
+        estado: Current state.
+        params: Rule parameters (a: resistance, b: influence).
+        cfg: Global configuration.
+
+    Returns:
+        Updated state.
     """
     a, b  = params.get("a", 0.7), params.get("b", 0.3)
     prop  = _aplicar_sesgo_confirmacion(estado["propaganda"], estado["opinion"], cfg)
@@ -280,8 +295,16 @@ def regla_lineal(estado: dict, params: dict, cfg: dict) -> dict:
 
 def regla_umbral(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    Salto no lineal cuando la propaganda supera un umbral crítico.
-    En [-1,1]: considera dirección de la propaganda.
+    Threshold/Tipping point rule based on Granovetter (Simple).
+    A non-linear jump occurs when propaganda exceeds a critical threshold.
+
+    Args:
+        estado: Current state.
+        params: Rule parameters (umbral, incremento).
+        cfg: Global configuration.
+
+    Returns:
+        Updated state.
     """
     r          = _get_rango(cfg)
     umbral     = params.get("umbral", 0.65 if not _es_bipolar(cfg) else 0.4)
@@ -298,7 +321,18 @@ def regla_umbral(estado: dict, params: dict, cfg: dict) -> dict:
 
 
 def regla_memoria(estado: dict, params: dict, cfg: dict) -> dict:
-    """Inercia: el estado presente depende del estado anterior."""
+    """
+    Inertia rule based on DeGroot with lag.
+    The current state depends on the previous state and history.
+
+    Args:
+        estado: Current state.
+        params: Rule parameters (alpha, beta, gamma).
+        cfg: Global configuration.
+
+    Returns:
+        Updated state.
+    """
     alpha = params.get("alpha", 0.7)
     beta  = params.get("beta",  0.2)
     gamma = params.get("gamma", 0.1)
@@ -313,9 +347,16 @@ def regla_memoria(estado: dict, params: dict, cfg: dict) -> dict:
 
 def regla_backlash(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    La propaganda refuerza la posición contraria cuando hay rechazo establecido.
-    [0,1]: activa cuando opinion < umbral_inferior.
-    [-1,1]: activa cuando opinion < neutro.
+    Backlash/Boomerang effect rule.
+    Propaganda reinforces the opposite position when negative sentiment is established.
+
+    Args:
+        estado: Current state.
+        params: Rule parameters (penalizacion).
+        cfg: Global configuration.
+
+    Returns:
+        Updated state.
     """
     penalizacion = params.get("penalizacion", 0.15)
     prop         = _aplicar_sesgo_confirmacion(estado["propaganda"], estado["opinion"], cfg)
@@ -338,8 +379,16 @@ def regla_backlash(estado: dict, params: dict, cfg: dict) -> dict:
 
 def regla_polarizacion(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    Aleja la opinión del neutro — efecto cámara de eco.
-    Funciona en ambos rangos usando el neutro del rango activo.
+    Polarization/Echo chamber rule.
+    Moves opinion further away from the neutral point.
+
+    Args:
+        estado: Current state.
+        params: Rule parameters (fuerza).
+        cfg: Global configuration.
+
+    Returns:
+        Updated state.
     """
     fuerza  = params.get("fuerza", 0.1)
     opinion = estado["opinion"]
@@ -363,14 +412,16 @@ def regla_polarizacion(estado: dict, params: dict, cfg: dict) -> dict:
 
 def regla_hk(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    Modelo de Hegselmann-Krause: confianza acotada.
+    Hegselmann-Krause (2002) - Bounded Confidence model.
+    Agents only interact with groups whose opinion is within a radius ε.
 
-    El agente solo es influenciado por grupos cuya opinión esté
-    dentro de epsilon de la propia. Si ningún grupo está dentro
-    del radio, la opinión no cambia (fragmentación emergente).
+    Args:
+        estado: Current state.
+        params: Rule parameters (epsilon).
+        cfg: Global configuration.
 
-    Parámetro: epsilon (radio de confianza) ∈ [0.1, 0.6]
-    Cuanto más pequeño epsilon, más clusters y polarización.
+    Returns:
+        Updated state.
     """
     epsilon = params.get("epsilon", cfg.get("hk_epsilon", 0.3))
     opinion = estado["opinion"]
@@ -416,16 +467,16 @@ def regla_hk(estado: dict, params: dict, cfg: dict) -> dict:
 
 def regla_contagio_competitivo(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    Modela la competencia entre dos narrativas simultáneas.
+    Competitive Contagion model based on Beutel et al. (2012).
+    Models competition between two simultaneous narratives.
 
-    narrativa_a = propaganda principal (estado["propaganda"])
-    narrativa_b = contra-narrativa o narrativa rival (estado["narrativa_b"])
+    Args:
+        estado: Current state.
+        params: Rule parameters (competencia).
+        cfg: Global configuration.
 
-    La adopción de A se frena en proporción a la fuerza de B.
-    En modo bipolar: propaganda negativa ya funciona como narrativa B,
-    pero este modelo lo hace explícito y simétrico.
-
-    Parámetro: competencia ∈ [0.2, 0.7] — peso de la narrativa B
+    Returns:
+        Updated state.
     """
     competencia  = params.get("competencia", cfg.get("competencia_peso", 0.4))
     opinion      = estado["opinion"]
@@ -453,18 +504,16 @@ def regla_contagio_competitivo(estado: dict, params: dict, cfg: dict) -> dict:
 
 def regla_umbral_heterogeneo(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    Modelo de umbral de Granovetter con distribución heterogénea.
+    Heterogeneous Threshold model based on Granovetter (1978).
+    Thresholds are normally distributed, enabling social cascades.
 
-    En lugar de un umbral único, la población tiene umbrales distribuidos
-    normalmente (media, std). La fracción de la población que ya superó
-    su umbral determina si se activa la siguiente ola de adopción.
+    Args:
+        estado: Current state.
+        params: Rule parameters (media, std).
+        cfg: Global configuration.
 
-    Esto genera dinámicas de cascada: pequeños cambios iniciales pueden
-    desencadenar adopciones masivas si la distribución es adecuada.
-
-    Parámetros:
-      media ∈ [0.3, 0.7] — umbral promedio de la población
-      std   ∈ [0.05, 0.25] — dispersión de umbrales (más std = más cascadas)
+    Returns:
+        Updated state.
     """
     media   = params.get("media", cfg.get("umbral_media", 0.5))
     std     = params.get("std",   cfg.get("umbral_std",   0.15))
@@ -498,18 +547,16 @@ def regla_umbral_heterogeneo(estado: dict, params: dict, cfg: dict) -> dict:
 
 def regla_homofilia(estado: dict, params: dict, cfg: dict) -> dict:
     """
-    Modelo de red co-evolutiva: opinión y estructura se co-influencian.
+    Axelrod (1997) - Co-evolutionary Network / Homophily.
+    Influence weights change based on opinion similarity.
 
-    En cada paso:
-    1. La pertenencia al grupo se actualiza según similitud de opinión
-       (quienes piensan igual, influyen más — homofilia).
-    2. La nueva estructura de influencia determina el cambio de opinión.
+    Args:
+        estado: Current state.
+        params: Rule parameters (tasa).
+        cfg: Global configuration.
 
-    Esto genera cámaras de eco de forma endógena: sin configurarlo
-    explícitamente, el sistema naturalmente se polariza en grupos
-    con alta coherencia interna.
-
-    Parámetro: tasa ∈ [0.02, 0.15] — velocidad de actualización de pesos
+    Returns:
+        Updated state.
     """
     tasa    = params.get("tasa", cfg.get("homofilia_tasa", 0.05))
     opinion = estado["opinion"]
@@ -602,10 +649,22 @@ def _validar_params(regla_nombre: str, params: dict) -> dict:
 
 def _construir_prompt(estado: dict, escenario: str,
                       historial_reciente: list[dict], cfg: dict) -> str:
+    """
+    Constructs the prompt for the LLM selector.
+
+    Args:
+        estado: Current state of the simulation.
+        escenario: The current simulation scenario.
+        historial_reciente: Last N steps of history.
+        cfg: Global configuration.
+
+    Returns:
+        The formatted prompt string.
+    """
     es_bipolar = _es_bipolar(cfg)
     tendencia  = [round(h["opinion"], 3) for h in historial_reciente]
     delta      = round(tendencia[-1] - tendencia[0], 3) if len(tendencia) > 1 else 0.0
-    direccion  = "subiendo" if delta > 0.02 else ("bajando" if delta < -0.02 else "estable")
+    direccion  = "rising" if delta > 0.02 else ("falling" if delta < -0.02 else "stable")
 
     estado_fmt = {
         k: round(v, 3) if isinstance(v, float) else v
@@ -613,45 +672,45 @@ def _construir_prompt(estado: dict, escenario: str,
     }
 
     rango_desc = (
-        "[-1, 1]: 0=neutro, negativo=rechazo activo, positivo=apoyo"
+        "[-1, 1]: 0=neutral, negative=active rejection, positive=support"
         if es_bipolar else
-        "[0, 1]: 0.5=neutro, 0=rechazo total, 1=apoyo total"
+        "[0, 1]: 0.5=neutral, 0=total rejection, 1=total support"
     )
 
     ejemplos = """
-Ejemplos de decisión:
-- opinion cerca del neutro, propaganda baja, sistema estable → memoria
-- propaganda intensa cruza umbral, sistema se mueve → umbral
-- grupos muy distantes entre sí → hk (confianza acotada)
-- rechazo establecido + propaganda activa → backlash
-- dos narrativas activas y tensas → contagio_competitivo
-- tendencia fuerte ya iniciada → polarizacion
-- se busca efecto de cascada social → umbral_heterogeneo
-- grupos tienden a agruparse por similitud → homofilia"""
+Decision Examples:
+- opinion near neutral, low propaganda, stable system → memoria
+- intense propaganda crosses threshold, system moves → umbral
+- groups very distant from each other → hk (bounded confidence)
+- established rejection + active propaganda → backlash
+- two active and tense narratives → contagio_competitivo
+- strong trend already started → polarizacion
+- social cascade effect desired → umbral_heterogeneo
+- groups tend to cluster by similarity → homofilia"""
 
-    return f"""Eres un selector de reglas para simulación de dinámica social.
-Escenario: {escenario} | Rango: {rango_desc}
+    return f"""You are a rule selector for a social dynamics simulation.
+Scenario: {escenario} | Range: {rango_desc}
 
-Estado:
+State:
 {json.dumps(estado_fmt, ensure_ascii=False)}
 
-Tendencia opinión (últimos {len(tendencia)} pasos): {tendencia}
-Dirección: {direccion} (Δ={delta:+.3f})
+Opinion Trend (last {len(tendencia)} steps): {tendencia}
+Direction: {direccion} (Δ={delta:+.3f})
 {ejemplos}
 
-Reglas disponibles:
-0: lineal               — cambio proporcional suave
-1: umbral               — salto al cruzar punto crítico
-2: memoria              — inercia del estado pasado
-3: backlash             — propaganda refuerza posición contraria
-4: polarizacion         — aleja del neutro (cámara de eco)
-5: hk                   — confianza acotada, solo escucha a similares
-6: contagio_competitivo — dos narrativas compiten simultáneamente
-7: umbral_heterogeneo   — cascadas sociales (Granovetter)
-8: homofilia            — red co-evolutiva, grupos por similitud
+Available Rules:
+0: lineal               — smooth proportional change
+1: umbral               — jump when crossing critical point
+2: memoria              — past state inertia
+3: backlash             — propaganda reinforces opposite position
+4: polarizacion         — moves away from neutral (echo chamber)
+5: hk                   — bounded confidence, only listen to similar ones
+6: contagio_competitivo — two narratives compete simultaneously
+7: umbral_heterogeneo   — social cascades (Granovetter)
+8: homofilia            — co-evolutionary network, groups by similarity
 
-Responde SOLO con JSON:
-{{"regla": <0-8>, "params": {{...}}, "razon": "<explicacion>"}}
+Respond ONLY with JSON:
+{{"regla": <0-8>, "params": {{...}}, "razon": "<explanation>"}}
 Fallback: {{"regla": 0, "params": {{}}, "razon": "fallback"}}
 """
 
@@ -720,8 +779,19 @@ def _llamar_ollama(prompt: str, cfg: dict) -> dict | None:
 
 
 def llamar_llm(estado: dict, escenario: str,
-               historial_reciente: list[dict], cfg: dict) -> dict:
-    """Dispatcher principal. Siempre retorna un dict válido."""
+                historial_reciente: list[dict], cfg: dict) -> dict:
+    """
+    Main dispatcher for LLM selectors.
+
+    Args:
+        estado: Current state.
+        escenario: Current scenario.
+        historial_reciente: History window for context.
+        cfg: Global configuration.
+
+    Returns:
+        A dictionary with "regla", "params", and "razon".
+    """
     proveedor = cfg.get("proveedor", "heurístico")
 
     if proveedor == "heurístico":
@@ -759,8 +829,17 @@ def llamar_llm(estado: dict, escenario: str,
 def llamar_llm_heuristico(estado: dict, escenario: str,
                            historial_reciente: list[dict], cfg: dict) -> dict:
     """
-    Selector determinista con lógica expandida para las nuevas reglas.
-    Umbrales relativos al rango — funciona en [0,1] y [-1,1].
+    Deterministic selector with expanded logic for all rules.
+    Works as a baseline or fallback when no LLM is available.
+
+    Args:
+        estado: Current state.
+        escenario: Current scenario.
+        historial_reciente: History window.
+        cfg: Global configuration.
+
+    Returns:
+        Rule decision dictionary.
     """
     opinion    = estado["opinion"]
     propaganda = estado["propaganda"]
@@ -830,8 +909,15 @@ def llamar_llm_heuristico(estado: dict, escenario: str,
 
 def calcular_efecto_grupos(estado: dict, cfg: dict) -> float:
     """
-    Presión social de grupos afín y contrario.
-    Opera sobre diferencias → funciona en [0,1] y [-1,1].
+    Calculates social pressure from affin and opposing groups.
+    Operates on differences, works for both [0,1] and [-1,1] ranges.
+
+    Args:
+        estado: Current state.
+        cfg: Global configuration.
+
+    Returns:
+        Social influence delta.
     """
     r      = _get_rango(cfg)
     op_a   = estado.get("opinion_grupo_a", r["ejemplo_apoyo"])
@@ -854,25 +940,18 @@ def simular(
     verbose: bool = True,
 ) -> list[dict]:
     """
-    Ejecuta la simulación híbrida con todas las reglas disponibles.
+    Executes the hybrid simulation with all available rules.
 
-    Parámetros
-    ----------
-    estado_inicial : dict
-        Requeridos : opinion, propaganda
-        Opcionales : confianza, opinion_grupo_a, opinion_grupo_b,
-                     pertenencia_grupo, narrativa_b, sesgo_confirmacion
-        Todos los valores de opinión deben estar en el rango configurado.
-    escenario      : str — clave en REGLAS
-    pasos          : int
-    cada_n_pasos   : int — frecuencia de consulta al selector LLM
-    config         : dict — sobreescribe DEFAULT_CONFIG
-                     Claves clave: "rango", "proveedor", "sesgo_confirmacion"
-    verbose        : bool
+    Args:
+        estado_inicial: Dictionary with at least "opinion" and "propaganda".
+        escenario: Scenario key in REGLAS.
+        pasos: Number of time steps.
+        cada_n_pasos: Frequency of LLM rule selection updates.
+        config: Override dictionary for DEFAULT_CONFIG.
+        verbose: If true, logs step details.
 
-    Retorna
-    -------
-    list[dict] — historial de estados (t=0 incluido)
+    Returns:
+        A list of state dictionaries (including t=0).
     """
     cfg         = {**DEFAULT_CONFIG, **(config or {})}
     r           = _get_rango(cfg)
@@ -975,7 +1054,20 @@ def simular_multiples(
     config: dict | None = None,
     n_simulaciones: int = 100,
 ) -> dict:
-    """N simulaciones con variación en estado inicial. Retorna distribución."""
+    """
+    Runs N simulations with variations in the initial state to return a distribution.
+
+    Args:
+        estado_inicial: Base state for all simulations.
+        escenario: Scenario key.
+        pasos: Steps per simulation.
+        cada_n_pasos: LLM update frequency.
+        config: Override config.
+        n_simulaciones: Number of runs.
+
+    Returns:
+        Statistics dictionary of the final opinion distribution.
+    """
     cfg        = {**DEFAULT_CONFIG, **(config or {})}
     r          = _get_rango(cfg)
     ruido_ini  = cfg["ruido_estado_inicial"]
@@ -1012,7 +1104,16 @@ def simular_multiples(
 # ============================================================
 
 def resumen_historial(historial: list[dict], config: dict | None = None) -> dict:
-    """Estadísticas descriptivas. Incluye polarización y regla dominante."""
+    """
+    Calculates descriptive statistics for a simulation history.
+
+    Args:
+        historial: List of state dictionaries.
+        config: Configuration for range/neutral reference.
+
+    Returns:
+        Dictionary with mean, std, delta, and dominant regime.
+    """
     cfg       = {**DEFAULT_CONFIG, **(config or {})}
     neutro    = _neutro(cfg)
     opiniones = np.array([h["opinion"] for h in historial])
@@ -1031,6 +1132,91 @@ def resumen_historial(historial: list[dict], config: dict | None = None) -> dict
         "neutro":             neutro,
         "rango":              cfg.get("rango", "—"),
     }
+
+
+# ============================================================
+# MODO ARQUITECTO SOCIAL (EJECUCIÓN POR ITINERARIO)
+# ============================================================
+
+def run_with_schedule(
+    estado_inicial: dict,
+    strategy_schedule: dict,
+    escenario: str = "campana",
+    config: dict | None = None,
+    verbose: bool = True,
+) -> list[dict]:
+    """
+    Ejecuta la simulación siguiendo estrictamente un schedule de intervenciones
+    generado por el LLM en Modo Inverso.
+    """
+    cfg = {**DEFAULT_CONFIG, **(config or {})}
+    r = _get_rango(cfg)
+    alpha_blend = cfg["alpha_blend"]
+    
+    estado = estado_inicial.copy()
+    estado.setdefault("opinion_prev", estado["opinion"])
+    estado.setdefault("confianza", 0.5)
+    estado.setdefault("opinion_grupo_a", min(estado["opinion"] + 0.2 * _amplitud(cfg), r["max"]))
+    estado.setdefault("opinion_grupo_b", max(estado["opinion"] - 0.2 * _amplitud(cfg), r["min"]))
+    estado.setdefault("pertenencia_grupo", 0.6)
+
+    historial: list[dict] = [estado.copy()]
+    
+    name_to_id = {v: k for k, v in NOMBRES_REGLAS.items()}
+    
+    paso_actual = 1
+    for fase in strategy_schedule.get("interventions", []):
+        start = max(paso_actual, fase["time_start"])
+        end = fase["time_end"]
+        # Parsing fallback for manual LLM responses
+        regla_nombre = fase["model_name"].lower().strip()
+        if "degroot" in regla_nombre: regla_nombre = "memoria"
+        if "granovetter" in regla_nombre: regla_nombre = "umbral_heterogeneo"
+        if "hegselmann" in regla_nombre or "hk" in regla_nombre: regla_nombre = "hk"
+        
+        regla_id = name_to_id.get(regla_nombre, 0) # Fallback a lineal(0)
+        params = _validar_params(NOMBRES_REGLAS.get(regla_id, "lineal"), fase.get("parameters", {}))
+        razon = fase.get("fase_rationale", "")
+        
+        for paso in range(start, end + 1):
+            if verbose and paso == start:
+                log.info(f"Fase Inversa [{start}-{end}]: {NOMBRES_REGLAS[regla_id]} | {razon}")
+            
+            regla_func = REGLAS[escenario].get(regla_id, regla_lineal)
+            estado_regla = regla_func(estado, params, cfg)
+            opinion_regla = _clip(estado_regla["opinion"], cfg)
+            
+            tendencia_base = 0.92 * estado["opinion"] + 0.08 * estado["propaganda"]
+            opinion_blend = alpha_blend * opinion_regla + (1.0 - alpha_blend) * tendencia_base
+            ruido_std = cfg["ruido_base"] + cfg["ruido_desconfianza"] * (1.0 - estado["confianza"])
+            
+            opinion_final = _clip(
+                opinion_blend
+                + calcular_efecto_grupos(estado, cfg)
+                + np.random.normal(0.0, ruido_std),
+                cfg
+            )
+            
+            nuevo = estado.copy()
+            if "pertenencia_grupo" in estado_regla:
+                nuevo["pertenencia_grupo"] = estado_regla["pertenencia_grupo"]
+            for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b"):
+                if k in estado_regla:
+                    nuevo[k] = estado_regla[k]
+                    
+            nuevo["opinion_prev"] = estado["opinion"]
+            nuevo["opinion"] = opinion_final
+            nuevo["_paso"] = paso
+            nuevo["_regla"] = regla_id
+            nuevo["_regla_nombre"] = NOMBRES_REGLAS.get(regla_id, regla_nombre)
+            nuevo["_razon"] = razon
+            nuevo["_rango"] = cfg["rango"]
+            
+            estado = nuevo
+            historial.append(estado.copy())
+            paso_actual = paso + 1
+            
+    return historial
 
 
 # ============================================================

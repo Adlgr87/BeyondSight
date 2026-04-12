@@ -1,0 +1,79 @@
+---
+title: BeyondSight
+emoji: 🌊
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+app_file: app.py
+pinned: false
+---
+
+# BeyondSight
+
+[![License: PPL 3.0](https://img.shields.io/badge/License-PROSPERITY_PUBLIC_V3.0-blue.svg)](https://prosperitylicense.com)
+[![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
+[![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
+
+![BeyondSight Demo](docs/beyondsight_mockup.png)
+
+Simulador híbrido de dinámica social — Núcleo numérico + LLM como selector de régimen.
+
+BeyondSight cierra la brecha entre los modelos matemáticos clásicos de formación de opinión y la flexibilidad contextual de los Modelos de Lenguaje de Gran Escala (LLMs).
+
+## Fundamentos Teóricos e Investigación
+
+El proyecto se inspira en modelos fundamentales de dinámica de opinión y en investigación de vanguardia:
+
+- **Modelos de DeGroot y Friedkin-Johnsen:** Implementación base para la evolución de opiniones en redes sociales, considerando la influencia de vecinos y la resistencia al cambio (prejuicios).
+- **Hegselmann-Krause (2002) - Confianza Acotada:** El agente solo interactúa con grupos cuya opinión se encuentra dentro de un radio `ε`, propiciando polarización natural y formación de clusters.
+- **Contagio Competitivo (Beutel et al., 2012):** Modela la propagación de dos narrativas rivales compitiendo simultáneamente en el sistema.
+- **Umbral Heterogéneo (Granovetter, 1978):** Uso de una distribución normal de umbrales en la población en lugar de uno estático, propiciando fenómenos de cascadas sociales rápidas.
+- **Redes Co-evolutivas y Homofilia (Axelrod, 1997):** La intensidad de la influencia varía según la similitud de las opiniones, lo que genera cámaras de eco (echo chambers) endógenas.
+- **Sesgo de Confirmación:** Un mecanismo transversal cognitivo que atenúa sistemáticamente el peso de la información contraria a la creencia actual del agente.
+- **Conexión Académica:** El enfoque de BeyondSight resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo los agentes inteligentes pueden alcanzar consensos o polarización.
+- **Arquitectura Híbrida:** A diferencia de simulaciones puramente numéricas, BeyondSight utiliza un LLM (como Llama 3) para analizar la trayectoria histórica y decidir qué régimen matemático de transición es sociológicamente más coherente en cada paso.
+
+## Arquitecto Social (Ingeniería Inversa)
+
+BeyondSight Enterprise introduce al **Arquitecto Social**, nuestra funcionalidad de ingeniería inversa apoyada en un agente *LLM-in-the-loop*. En lugar de simplemente predecir el futuro de la red en base al estado actual, ahora describes a la IA tu clima social deseado (ej. "Despolarizar la violencia y lograr un consenso social sólido en 20 iteraciones"). El agente intervendrá con los marcos matemáticos, iterará simulando futuros hipotéticos, aprenderá de los escenarios de colapso, y reajustará sus políticas hasta entregarte la `Matriz de Estrategia` exacta ("Receta Sociológica") requerida para alterar con éxito la sociedad sin margen de error analítico.
+
+## Instalación
+
+```bash
+pip install -r requirements.txt
+```
+
+## Ejecución
+
+### Modo Local (Streamlit)
+```bash
+streamlit run app.py
+```
+
+### Ejecución en Hugging Face Spaces
+Este repositorio está listo para ser desplegado como un **Hugging Face Space**. Simplemente conecta este repo a un nuevo Space de tipo `Streamlit`.
+
+## Estructura del Proyecto
+
+```
+BeyondSight/
+├── archive/           # Versiones históricas y logs (ignorados por git)
+├── tests/             # Pruebas unitarias del simulador
+├── .gitignore         # Configuración de archivos ignorados
+├── app.py             # Interfaz Streamlit
+├── README.md          # Documentación y Meta-datos
+├── requirements.txt   # Dependencias
+└── simulator.py       # Núcleo del simulador y lógica LLM
+```
+
+## Licencia Ética
+
+Este proyecto está bajo la **Prosperity Public License 3.0.0**.
+
+- **Uso Comunal/Personal/Educativo:** Gratuito y libre.
+- **Uso Corporativo:** Las empresas pueden probar el software por 30 días. Tras ese periodo, deben adquirir una licencia comercial.
+
+Para consultas comerciales, contactar a [Adlgr87](https://github.com/Adlgr87) en GitHub.
+
+---
+*Desarrollado con un enfoque en la interpretabilidad de la IA y el estudio de sistemas sociales complejos.*

@@ -10,3 +10,5 @@ beyondsight_run.log
 .vscode/
 .kilocode/
 archive/
+.env
+leads.csv
