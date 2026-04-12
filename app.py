@@ -21,6 +21,7 @@ from simulator import (
     NOMBRES_REGLAS,
     PROVEEDORES,
     RANGOS_DISPONIBLES,
+    get_graph_metrics,
     resumen_historial,
     simular,
     simular_multiples,
@@ -56,6 +57,9 @@ if "estr_inversa" not in st.session_state:
     st.session_state["estr_inversa"] = None
 if "objetivo_inverso" not in st.session_state:
     st.session_state["objetivo_inverso"] = ""
+if "corporate_graph" not in st.session_state:
+    # Almacena el grafo NetworkX si se sube un CSV corporativo
+    st.session_state["corporate_graph"] = None
 
 # ------------------------------------------------------------
 # ESTILOS
@@ -504,34 +508,153 @@ with tab1:
 
 with tab2:
     st.markdown("### Arquitecto Social: Ingeniería Inversa 🧠")
-    st.markdown("Describe el **clima social final** que deseas lograr en la red y nuestro Agente LLM iterará con los modelos matemáticos hasta encontrar la receta sociológica exacta.")
-    objetivo = st.text_area("Ejemplo: 'Quiero despolarizar una red dividida en dos bandos radicales y lograr un consenso moderado en 20 iteraciones.'")
-    if st.button("Generar Estrategia Maestra"):
+    st.markdown(
+        "Describe el **clima social final** que deseas lograr en la red y nuestro Agente LLM "
+        "iterará con los modelos matemáticos hasta encontrar la receta sociológica exacta."
+    )
+
+    # ── SELECTOR DE MODO ─────────────────────────────────────────
+    modo_cols = st.columns([1, 1])
+    with modo_cols[0]:
+        modo_simulacion = st.radio(
+            "**Modo de Simulación**",
+            options=["macro", "corporativo"],
+            format_func=lambda m: "🌐 Modo Macro (Redes Sociales/Políticas)" if m == "macro" else "🏢 Modo Corporativo (Organizaciones)",
+            horizontal=True,
+        )
+
+    # ── CARGA DE CSV CORPORATIVO ──────────────────────────────────
+    grafo_org = st.session_state.get("corporate_graph", None)
+    metricas_red = ""
+
+    if modo_simulacion == "corporativo":
+        st.markdown("---")
+        st.markdown("#### Red Organizacional")
+        csv_col, metrics_col = st.columns([3, 2])
+        with csv_col:
+            csv_uploaded = st.file_uploader(
+                "📂 Sube tu CSV de red (columnas: `source`, `target`)",
+                type=["csv"],
+                help="Cada fila representa una conexión entre dos personas/departamentos.",
+            )
+            if csv_uploaded is not None:
+                try:
+                    import networkx as nx
+                    df_csv = pd.read_csv(csv_uploaded)
+                    if "source" in df_csv.columns and "target" in df_csv.columns:
+                        G = nx.from_pandas_edgelist(df_csv, source="source", target="target")
+                        st.session_state["corporate_graph"] = G
+                        grafo_org = G
+                        st.success(f"✅ Red cargada: **{G.number_of_nodes()}** nodos, **{G.number_of_edges()}** conexiones.")
+                    else:
+                        st.error("El CSV necesita columnas 'source' y 'target'.")
+                except Exception as e:
+                    st.error(f"Error al cargar el CSV: {e}")
+
+        with metrics_col:
+            if grafo_org is not None:
+                metricas_red = get_graph_metrics(grafo_org, modo="corporativo", top_n=5)
+                st.markdown("**Métricas de la Red:**")
+                st.code(metricas_red, language="text")
+            else:
+                st.info("Sin CSV cargado. Se usará una red organizacional genérica.")
+                # Red sintética de demo para modo corporativo sin CSV
+                import networkx as nx
+                G_demo = nx.barabasi_albert_graph(20, 2, seed=42)
+                G_demo = nx.relabel_nodes(G_demo, {i: f"Nodo_{chr(65+i%26)}{i//26 or ''}" for i in G_demo.nodes()})
+                metricas_red = get_graph_metrics(G_demo, modo="corporativo", top_n=5)
+                # Mostrar advertencia amigable
+                st.caption(f"🔁 Red demo (20 nodos, Barabási-Albert):\n{metricas_red}")
+
+    elif modo_simulacion == "macro":
+        metricas_red = ""  # En modo macro no se usan métricas de grafo
+
+    st.markdown("---")
+
+    # ── OBJETIVO Y EJECUCIÓN ──────────────────────────────────────
+    placeholder_objetivo = (
+        "Ej: 'Quiero alinear al equipo de ventas con la nueva estrategia en 30 días, "
+        "empezando por los líderes informales identificados.'"
+        if modo_simulacion == "corporativo" else
+        "Ej: 'Quiero despolarizar una red dividida en dos bandos radicales y lograr un consenso moderado.'"
+    )
+    objetivo = st.text_area("✏️ Describe tu objetivo:", placeholder=placeholder_objetivo, height=100)
+
+    if st.button("⚡ Generar Estrategia Maestra"):
         if objetivo:
             if PROVEEDORES[proveedor]["requiere_key"] and not api_key.strip():
                 st.error("⚠️ Se requiere API key para generar estrategias con el LLM.")
                 st.stop()
-            config_run = {"rango": nombre_rango, "proveedor": proveedor, "modelo": modelo, "api_key": api_key, "ollama_host": ollama_host, "alpha_blend": alpha, "sesgo_confirmacion": sesgo_conf, "hk_epsilon": hk_epsilon, "homofilia_tasa": homofilia_tasa}
-            estado_inicial = {"opinion": opinion0, "propaganda": propaganda, "confianza": confianza, "opinion_grupo_a": op_grupo_a, "opinion_grupo_b": op_grupo_b, "pertenencia_grupo": pertenencia}
+
+            config_run = {
+                "rango": nombre_rango,
+                "proveedor": proveedor,
+                "modelo": modelo,
+                "api_key": api_key,
+                "ollama_host": ollama_host,
+                "alpha_blend": alpha,
+                "sesgo_confirmacion": sesgo_conf,
+                "hk_epsilon": hk_epsilon,
+                "homofilia_tasa": homofilia_tasa,
+                # Pasar tamaño del grafo para el cálculo de proporciones target_nodes
+                "_n_nodos": grafo_org.number_of_nodes() if grafo_org else 20,
+            }
+            estado_inicial = {
+                "opinion": opinion0,
+                "propaganda": propaganda,
+                "confianza": confianza,
+                "opinion_grupo_a": op_grupo_a,
+                "opinion_grupo_b": op_grupo_b,
+                "pertenencia_grupo": pertenencia,
+            }
             if activar_narrativa_b:
                 estado_inicial["narrativa_b"] = narrativa_b
-            with st.status("Arquitecto trabajando... esto puede tomar un minuto.", expanded=True) as status:
+
+            # Badge de modo
+            modo_badge_color = "#c3a6ff" if modo_simulacion == "corporativo" else "#5ccfe6"
+            modo_label = "🏢 Corporativo" if modo_simulacion == "corporativo" else "🌐 Macro"
+            st.markdown(
+                f'<span class="badge" style="background:#1a2535;color:{modo_badge_color};'
+                f'border:1px solid {modo_badge_color}">{modo_label}</span>',
+                unsafe_allow_html=True,
+            )
+
+            with st.status(
+                f"Arquitecto trabajando en modo **{modo_label}**... esto puede tomar un minuto.",
+                expanded=True
+            ) as status:
                 st.write("Calculando simulaciones hipotéticas y escenarios de convergencia...")
-                estrategia, narrativa, intentos, hist_inverso = buscar_estrategia_inversa(estado_inicial, objetivo, max_intentos=3, config=config_run)
+                if metricas_red:
+                    st.write(f"🔍 Métricas de red inyectadas en el prompt del LLM.")
+
+                estrategia, narrativa, intentos, hist_inverso = buscar_estrategia_inversa(
+                    estado_inicial=estado_inicial,
+                    objetivo_usuario=objetivo,
+                    max_intentos=3,
+                    config=config_run,
+                    modo_simulacion=modo_simulacion,
+                    metricas_red=metricas_red,
+                )
                 st.session_state["estr_inversa"] = {
                     "estrategia": estrategia,
                     "narrativa": narrativa,
-                    "hist_inverso": hist_inverso
+                    "hist_inverso": hist_inverso,
+                    "modo": modo_simulacion,
                 }
                 st.session_state["objetivo_inverso"] = objetivo
-                status.update(label=f"Estrategia encontrada en {intentos} iteraciones!", state="complete", expanded=False)
+                status.update(
+                    label=f"Estrategia encontrada en {intentos} iteraciones!",
+                    state="complete",
+                    expanded=False,
+                )
                 st.rerun()
         else:
             st.warning("Por favor, describe un objetivo.")
-            
+
     if st.session_state["estr_inversa"]:
         data_inv = st.session_state["estr_inversa"]
-        
+        modo_inv = data_inv.get("modo", "macro")
+
         if not st.session_state["lead_captured"]:
             st.success("¡Estrategia calculada con éxito!")
             st.write("Para desbloquear el **Reporte Estratégico Completo** y la matriz de intervención, ingresa tu email corporativo.")
@@ -544,28 +667,58 @@ with tab2:
                     st.session_state["lead_captured"] = True
                     st.rerun()
         else:
-            st.subheader("Análisis de Clima Social")
+            titulo_narrativa = (
+                "📋 Reporte Ejecutivo de Cambio Organizacional"
+                if modo_inv == "corporativo" else
+                "🌐 Análisis de Clima Social"
+            )
+            st.subheader(titulo_narrativa)
             st.write(data_inv["narrativa"])
-            
+
             if data_inv["hist_inverso"]:
-                import pandas as pd
                 st.markdown("**Trayectoria de opinión (Estrategia Aplicada)** — *BeyondSight AI*")
                 opiniones_inv = [h["opinion"] for h in data_inv["hist_inverso"]]
                 df_data_inv = {"Opinión": opiniones_inv, "Neutro": [neutro] * len(opiniones_inv)}
                 st.line_chart(pd.DataFrame(df_data_inv), color=["#5ccfe6", "#3d5166"])
-                
+
                 st.markdown("### Topología de Red Empírica")
-                fig_net2 = generate_social_network_viz(opiniones_inv[-1], 0.5, amalgama=not es_bipolar, is_bipolar=es_bipolar)
+                fig_net2 = generate_social_network_viz(
+                    opiniones_inv[-1], 0.5,
+                    amalgama=not es_bipolar, is_bipolar=es_bipolar
+                )
                 st.plotly_chart(fig_net2, use_container_width=True)
-                
+
+            # ── MATRIZ CON TARGET NODES RESALTADOS ───────────────
             st.subheader("Matriz de Intervención (Datos Técnicos)")
-            st.json(data_inv["estrategia"])
-            
-            report_text = f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\\nObjetivo: {st.session_state['objetivo_inverso']}\\n\\n{data_inv['narrativa']}\\n\\n"
-            report_text += "MATRIZ:\\n" + json.dumps(data_inv["estrategia"], indent=2) + "\\n\\n"
-            report_text += "-" * 50 + "\\n"
-            report_text += "Generado con BeyondSight AI - Simulador de Redes Sociales.\\n"
-            report_text += "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\\n"
-            report_text += "-" * 50
-            
-            st.download_button("📥 Descargar Reporte Ejecutivo (TXT)", data=report_text, file_name="Reporte_BeyondSight_Estrategia.txt")
+            estrategia_display = data_inv["estrategia"]
+            # Resaltar fases con target_nodes en modo corporativo
+            if modo_inv == "corporativo":
+                fases_con_targets = [
+                    f for f in estrategia_display.get("interventions", [])
+                    if f.get("target_nodes") or (
+                        isinstance(f.get("parameters", {}), dict)
+                        and f["parameters"].get("target_nodes")
+                    )
+                ]
+                if fases_con_targets:
+                    st.markdown(
+                        f"🎯 **{len(fases_con_targets)} fase(s) con intervención directa en nodos líderes.**"
+                    )
+            st.json(estrategia_display)
+
+            report_text = (
+                f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\\n"
+                f"Modo: {modo_inv.upper()}\\n"
+                f"Objetivo: {st.session_state['objetivo_inverso']}\\n\\n"
+                f"{data_inv['narrativa']}\\n\\n"
+                "MATRIZ:\\n" + json.dumps(data_inv["estrategia"], indent=2) + "\\n\\n"
+                + "-" * 50 + "\\n"
+                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\\n"
+                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\\n"
+                + "-" * 50
+            )
+            st.download_button(
+                "📥 Descargar Reporte Ejecutivo (TXT)",
+                data=report_text,
+                file_name=f"Reporte_BeyondSight_{modo_inv.capitalize()}.txt",
+            )

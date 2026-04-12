@@ -36,6 +36,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import networkx as nx
 import numpy as np
 import requests
 
@@ -1135,6 +1136,56 @@ def resumen_historial(historial: list[dict], config: dict | None = None) -> dict
 
 
 # ============================================================
+# MÉTRICAS DE GRAFO (NetworkX) — para el Arquitecto Social
+# ============================================================
+
+def get_graph_metrics(G: nx.Graph, modo: str = "macro", top_n: int = 5) -> str:
+    """
+    Calcula centralidad de grado y betweenness sobre un grafo NetworkX
+    y devuelve un resumen textual para el Arquitecto Social.
+
+    Args:
+        G: Grafo NetworkX (dirigido o no dirigido).
+        modo: 'macro' o 'corporativo' — ajusta el vocabulario del resumen.
+        top_n: Número de nodos más influyentes a listar.
+
+    Returns:
+        String con el resumen de métricas listo para inyectar en el prompt.
+    """
+    if G is None or G.number_of_nodes() == 0:
+        return "Red vacía — no se pudieron calcular métricas de grafo."
+
+    # Centralidad de grado (normalizada)
+    degree_cent = nx.degree_centrality(G)
+    top_degree = sorted(degree_cent.items(), key=lambda x: x[1], reverse=True)[:top_n]
+
+    # Betweenness centrality (control de flujo de información)
+    try:
+        between_cent = nx.betweenness_centrality(G, normalized=True)
+        top_between = sorted(between_cent.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    except Exception:
+        top_between = top_degree  # fallback si el grafo es trivial
+
+    label_influencia = "Nodos más influyentes (grado)"
+    label_puentes    = "Nodos puente (betweenness)"
+    if modo == "corporativo":
+        label_influencia = "Empleados/Directivos con más conexiones directas"
+        label_puentes    = "Líderes informales que controlan el flujo de información"
+
+    def fmt(items):
+        return ", ".join(
+            f"{nodo} ({v:.2f})" for nodo, v in items
+        )
+
+    resumen = (
+        f"Red: {G.number_of_nodes()} nodos, {G.number_of_edges()} conexiones.\n"
+        f"{label_influencia}: {fmt(top_degree)}.\n"
+        f"{label_puentes}: {fmt(top_between)}."
+    )
+    return resumen
+
+
+# ============================================================
 # MODO ARQUITECTO SOCIAL (EJECUCIÓN POR ITINERARIO)
 # ============================================================
 
@@ -1178,44 +1229,64 @@ def run_with_schedule(
         params = _validar_params(NOMBRES_REGLAS.get(regla_id, "lineal"), fase.get("parameters", {}))
         razon = fase.get("fase_rationale", "")
         
+        # Extraer target_nodes desde parameters o desde la fase directamente
+        target_nodes = params.pop("target_nodes", None) or fase.get("target_nodes", None)
+
         for paso in range(start, end + 1):
             if verbose and paso == start:
-                log.info(f"Fase Inversa [{start}-{end}]: {NOMBRES_REGLAS[regla_id]} | {razon}")
-            
+                log.info(
+                    f"Fase Inversa [{start}-{end}]: {NOMBRES_REGLAS[regla_id]} | {razon}"
+                    + (f" | target_nodes={target_nodes}" if target_nodes else "")
+                )
+
             regla_func = REGLAS[escenario].get(regla_id, regla_lineal)
             estado_regla = regla_func(estado, params, cfg)
             opinion_regla = _clip(estado_regla["opinion"], cfg)
-            
+
+            # ── Aplicar boosting de target_nodes (modo corporativo) ──────
+            # Si se especifican nodos líderes, su „voto" fuerza la propaganda
+            # hacia el centro de sus posiciones, aumentando la convergencia.
+            if target_nodes:
+                proporcion_target = min(1.0, len(target_nodes) / max(1, cfg.get("_n_nodos", 20)))
+                # La opinión de los nodos target jala la opinión global con extra peso
+                opinion_regla = _clip(
+                    opinion_regla + 0.12 * proporcion_target * (
+                        estado.get("propaganda", 0.5) - opinion_regla
+                    ),
+                    cfg,
+                )
+
             tendencia_base = 0.92 * estado["opinion"] + 0.08 * estado["propaganda"]
             opinion_blend = alpha_blend * opinion_regla + (1.0 - alpha_blend) * tendencia_base
             ruido_std = cfg["ruido_base"] + cfg["ruido_desconfianza"] * (1.0 - estado["confianza"])
-            
+
             opinion_final = _clip(
                 opinion_blend
                 + calcular_efecto_grupos(estado, cfg)
                 + np.random.normal(0.0, ruido_std),
-                cfg
+                cfg,
             )
-            
+
             nuevo = estado.copy()
             if "pertenencia_grupo" in estado_regla:
                 nuevo["pertenencia_grupo"] = estado_regla["pertenencia_grupo"]
             for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b"):
                 if k in estado_regla:
                     nuevo[k] = estado_regla[k]
-                    
-            nuevo["opinion_prev"] = estado["opinion"]
-            nuevo["opinion"] = opinion_final
-            nuevo["_paso"] = paso
-            nuevo["_regla"] = regla_id
-            nuevo["_regla_nombre"] = NOMBRES_REGLAS.get(regla_id, regla_nombre)
-            nuevo["_razon"] = razon
-            nuevo["_rango"] = cfg["rango"]
-            
+
+            nuevo["opinion_prev"]   = estado["opinion"]
+            nuevo["opinion"]        = opinion_final
+            nuevo["_paso"]          = paso
+            nuevo["_regla"]         = regla_id
+            nuevo["_regla_nombre"]  = NOMBRES_REGLAS.get(regla_id, regla_nombre)
+            nuevo["_razon"]         = razon
+            nuevo["_rango"]         = cfg["rango"]
+            nuevo["_target_nodes"]  = target_nodes  # trazabilidad
+
             estado = nuevo
             historial.append(estado.copy())
             paso_actual = paso + 1
-            
+
     return historial
 
 
