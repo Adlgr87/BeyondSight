@@ -19,12 +19,13 @@ class SimulatorTests(unittest.TestCase):
         }
 
     def test_simular_devuelve_historial_valido(self):
+        config = {"proveedor": "heurístico"}
         historial = simular(
             self.estado_base,
             escenario="campana",
             pasos=20,
             cada_n_pasos=5,
-            usar_llm_real=False,
+            config=config,
             verbose=False,
         )
 
@@ -34,15 +35,16 @@ class SimulatorTests(unittest.TestCase):
         self.assertTrue(all("_regla_nombre" in h for h in historial[1:]))
 
     def test_resumen_historial_consistente(self):
+        config = {"proveedor": "heurístico"}
         historial = simular(
             self.estado_base,
             escenario="campana",
             pasos=10,
             cada_n_pasos=2,
-            usar_llm_real=False,
+            config=config,
             verbose=False,
         )
-        stats = resumen_historial(historial)
+        stats = resumen_historial(historial, config)
 
         self.assertEqual(stats["pasos"], 10)
         self.assertGreaterEqual(stats["maximo"], stats["minimo"])

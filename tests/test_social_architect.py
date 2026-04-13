@@ -5,44 +5,46 @@ def test_evaluar_resultado_consenso():
     # Simulate a network that successfully reached consensus around 0.5 (Neutrality/Agreement)
     objetivo = "consenso"
     historial = [
-        {"opinion": 0.1, "estado_completo": {"confianza": 0.3}},
-        {"opinion": 0.45, "estado_completo": {"confianza": 0.8}},
-        {"opinion": 0.51, "estado_completo": {"confianza": 0.9}},
+        {"opinion": 0.5, "pertenencia_grupo": 0.5, "_paso": 0},
+        {"opinion": 0.5, "pertenencia_grupo": 0.5, "_paso": 1},
+        {"opinion": 0.5, "pertenencia_grupo": 0.5, "_paso": 2},
     ]
     
-    es_exito, razon = evaluar_resultado(historial, objetivo)
+    score, feedback = evaluar_resultado(historial, objetivo)
     
-    assert es_exito is True
-    assert "consenso" in razon.lower() or "estable" in razon.lower()
+    # Score should be high for consensus
+    assert score >= 80
+    assert "Éxito" in feedback or "converg" in feedback.lower()
 
 def test_evaluar_resultado_falla_polarizacion():
     # Simulate a network that should have reached consensus but remained extremely partisan
     objetivo = "despolarizar"
+    # Using range [0, 1], so 0.9 and 0.1 are polarized. Average is 0.5 but variance is high.
+    # However, social_architect evaluation uses polarizacion_media from stats.
+    # To make it fail, we need high polarizacion.
     historial = [
-        {"opinion": 0.9, "estado_completo": {"confianza": 0.3}},
-        {"opinion": 0.95, "estado_completo": {"confianza": 0.2}},
+        {"opinion": 0.9, "pertenencia_grupo": 0.5, "_paso": 0},
+        {"opinion": 0.1, "pertenencia_grupo": 0.5, "_paso": 1},
     ]
     
-    es_exito, razon = evaluar_resultado(historial, objetivo)
+    score, feedback = evaluar_resultado(historial, objetivo)
     
-    assert es_exito is False
-    assert "extrema" in razon.lower() or "polarización" in razon.lower()
+    # Polarizacion might be high, so score should be low
+    assert score < 60
+    assert "Ajuste insuficiente" in feedback
 
 def test_parsear_estrategia_valida():
     # Valid strategy payload from LLM
     json_text = '''
     ```json
     {
-      "falso_json": false,
-      "estrategias": [
+      "interventions": [
         {"time_start": 0, "time_end": 5, "model_name": "lineal", "parameters": {}, "fase_rationale": "Init"}
       ]
     }
     ```
     '''
-    # We mock or run the regex logic inside parse_llm_strategy
-    # Because parse_llm_strategy calls the LLM if it fails pydantic, we just test the regex parsing manually.
-    import re
-    match = re.search(r"```json\s*(.*?)\s*```", json_text, re.DOTALL)
-    assert match is not None
-    assert "falso_json" in match.group(1)
+    resultado = parse_llm_strategy(json_text)
+    assert "interventions" in resultado
+    assert len(resultado["interventions"]) == 1
+    assert resultado["interventions"][0]["model_name"] == "lineal"
