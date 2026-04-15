@@ -7,8 +7,13 @@ def test_llm_selector_fallback():
     Test that when the LLM provider fails or returns invalid JSON, 
     the system falls back to the heuristic selector.
     """
-    estado = {"opinion": 0.5, "propaganda": 0.1}
-    cfg = {"proveedor": "openai", "api_key": "fake"}
+    estado = {"opinion": 0.5, "propaganda": 0.1, "confianza": 0.5}
+    cfg = {
+        "proveedor": "openai", 
+        "api_key": "fake",
+        "llm_temperature": 0.0,
+        "llm_timeout": 10
+    }
     
     # Mocking a failed response (e.g., connection error)
     with patch("requests.post") as mock_post:

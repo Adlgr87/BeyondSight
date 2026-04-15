@@ -85,17 +85,17 @@ RANGOS_DISPONIBLES: dict[str, dict] = {
 PROVEEDORES: dict[str, dict] = {
     "heurístico": {
         "descripcion": "Sin LLM — lógica determinista, sin costo ni API key",
-        "requiere_key": False, "base_url": None,
+        "requiere_key": False, "base_url": None, "tipo": "heurístico",
         "modelos_sugeridos": ["(ninguno)"],
     },
     "ollama": {
         "descripcion": "LLM local con Ollama — privado, sin costo por llamada",
-        "requiere_key": False, "base_url": "http://localhost:11434",
+        "requiere_key": False, "base_url": "http://localhost:11434", "tipo": "ollama",
         "modelos_sugeridos": ["llama3:8b", "mistral:7b", "phi3:mini", "gemma2:2b"],
     },
     "groq": {
         "descripcion": "Groq Cloud — muy rápido, tier gratuito generoso",
-        "requiere_key": True, "base_url": "https://api.groq.com/openai/v1",
+        "requiere_key": True, "base_url": "https://api.groq.com/openai/v1", "tipo": "openai",
         "modelos_sugeridos": [
             "llama-3.1-8b-instant", "llama-3.3-70b-versatile",
             "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -103,12 +103,12 @@ PROVEEDORES: dict[str, dict] = {
     },
     "openai": {
         "descripcion": "OpenAI API — GPT-4o, GPT-4o-mini, etc.",
-        "requiere_key": True, "base_url": "https://api.openai.com/v1",
+        "requiere_key": True, "base_url": "https://api.openai.com/v1", "tipo": "openai",
         "modelos_sugeridos": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-nano"],
     },
     "openrouter": {
         "descripcion": "OpenRouter — acceso a cientos de modelos con una sola key",
-        "requiere_key": True, "base_url": "https://openrouter.ai/api/v1",
+        "requiere_key": True, "base_url": "https://openrouter.ai/api/v1", "tipo": "openai",
         "modelos_sugeridos": [
             "meta-llama/llama-3.3-70b-instruct",
             "google/gemini-flash-1.5",
@@ -734,23 +734,27 @@ def _extraer_json(texto: str) -> dict | None:
 def _llamar_openai_compatible(prompt: str, base_url: str, api_key: str,
                                modelo: str, cfg: dict) -> dict | None:
     try:
+        # Ensure we have defaults for missing keys
+        timeout = cfg.get("llm_timeout", DEFAULT_CONFIG["llm_timeout"])
+        temp = cfg.get("llm_temperature", DEFAULT_CONFIG["llm_temperature"])
+
         resp = requests.post(
             f"{base_url}/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
                 "model": modelo,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": cfg["llm_temperature"],
+                "temperature": temp,
                 "max_tokens": 300,
             },
-            timeout=cfg["llm_timeout"],
+            timeout=timeout,
         )
         resp.raise_for_status()
         return _extraer_json(resp.json()["choices"][0]["message"]["content"])
     except requests.exceptions.ConnectionError:
         log.error(f"No se pudo conectar a {base_url}.")
     except requests.exceptions.Timeout:
-        log.warning(f"Timeout ({cfg['llm_timeout']}s) en {base_url}.")
+        log.warning(f"Timeout ({cfg.get('llm_timeout', DEFAULT_CONFIG['llm_timeout'])}s) en {base_url}.")
     except (KeyError, IndexError) as e:
         log.warning(f"Error parseando respuesta: {e}")
     return None
@@ -758,15 +762,18 @@ def _llamar_openai_compatible(prompt: str, base_url: str, api_key: str,
 
 def _llamar_ollama(prompt: str, cfg: dict) -> dict | None:
     try:
+        timeout = cfg.get("llm_timeout", DEFAULT_CONFIG["llm_timeout"])
+        temp = cfg.get("llm_temperature", DEFAULT_CONFIG["llm_temperature"])
+
         resp = requests.post(
             f"{cfg['ollama_host']}/api/generate",
             json={
                 "model":   cfg["modelo"],
                 "prompt":  prompt,
                 "stream":  False,
-                "options": {"temperature": cfg["llm_temperature"]},
+                "options": {"temperature": temp},
             },
-            timeout=cfg["llm_timeout"],
+            timeout=timeout,
         )
         resp.raise_for_status()
         return _extraer_json(resp.json().get("response", ""))
@@ -801,30 +808,41 @@ def llamar_llm(estado: dict, escenario: str,
     prompt = _construir_prompt(estado, escenario, historial_reciente, cfg)
     data   = None
 
-    if proveedor == "ollama":
-        data = _llamar_ollama(prompt, cfg)
-    elif proveedor in PROVEEDORES:
-        info    = PROVEEDORES[proveedor]
-        api_key = cfg.get("api_key", "").strip()
-        modelo  = cfg.get("modelo", "").strip() or info["modelos_sugeridos"][0]
-        if not api_key:
-            log.error(f"'{proveedor}' requiere API key. → heurístico.")
+    try:
+        if proveedor in PROVEEDORES:
+            info    = PROVEEDORES[proveedor]
+            api_key = cfg.get("api_key", "").strip()
+            modelo  = cfg.get("modelo", "").strip() or info["modelos_sugeridos"][0]
+            tipo    = info.get("tipo", "heurístico")
+
+            if tipo == "heurístico":
+                return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+
+            if info.get("requiere_key") and not api_key:
+                log.error(f"'{proveedor}' requiere API key. → heurístico.")
+                return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+            
+            if tipo == "openai":
+                data = _llamar_openai_compatible(prompt, info["base_url"], api_key, modelo, cfg)
+            elif tipo == "ollama":
+                data = _llamar_ollama(prompt, cfg)
+            else:
+                log.error(f"Tipo de proveedor desconocido: '{tipo}'. → heurístico.")
+                return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        else:
+            log.error(f"Proveedor desconocido: '{proveedor}'. → heurístico.")
             return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
-        data = _llamar_openai_compatible(prompt, info["base_url"], api_key, modelo, cfg)
-    else:
-        log.error(f"Proveedor desconocido: '{proveedor}'. → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+    except Exception as e:
+        log.error(f"Error crítico en proveedor LLM {proveedor}: {e}")
+        data = None
 
-    if data is None:
-        log.warning("LLM sin respuesta → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+    if data and "regla" in data and data["regla"] in REGLAS.get(escenario, {}):
+        return {"regla": int(data["regla"]), "params": data.get("params", {}), "razon": data.get("razon", "")}
 
-    regla_id = int(data.get("regla", 0))
-    if regla_id not in REGLAS.get(escenario, {}):
-        log.warning(f"Regla inválida ({regla_id}) → fallback.")
-        return {"regla": 0, "params": {}, "razon": "fallback"}
-
-    return {"regla": regla_id, "params": data.get("params", {}), "razon": data.get("razon", "")}
+    log.warning(f"LLM ({proveedor}) falló o dio respuesta inválida. Aplicando fallback heurístico.")
+    res = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+    res["razon"] = f"[Fallback] {res['razon']}"
+    return res
 
 
 def llamar_llm_heuristico(estado: dict, escenario: str,
@@ -1288,6 +1306,34 @@ def run_with_schedule(
             paso_actual = paso + 1
 
     return historial
+
+
+def iter_simulation_ticks(
+    estado_inicial: dict,
+    escenario: str = "campana",
+    pasos: int = 50,
+    cada_n_pasos: int = 5,
+    config: dict | None = None,
+    verbose: bool = False,
+):
+    """
+    Generator version of simulation for real-time streaming.
+
+    Yields:
+        dict: state at each tick including normalized tick metadata.
+    """
+    historial = simular(
+        estado_inicial=estado_inicial,
+        escenario=escenario,
+        pasos=pasos,
+        cada_n_pasos=cada_n_pasos,
+        config=config,
+        verbose=verbose,
+    )
+    for idx, state in enumerate(historial):
+        tick_state = state.copy()
+        tick_state["_tick"] = idx
+        yield tick_state
 
 
 # ============================================================
