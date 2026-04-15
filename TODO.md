@@ -1,9 +1,10 @@
-# TODO - user-friendly deployment hardening
+# TODO - Realtime Serialization Pipeline (BeyondSight)
 
-- [x] Audit and improve README.md for non-technical onboarding (quick start, local run, HF deploy, troubleshooting).
-- [x] Audit and improve README_ES.md with equivalent beginner-friendly guidance in Spanish.
-- [x] Add .env.example with complete, validated variable documentation.
-- [x] Add start.bat (Windows) for one-command setup + launch.
-- [x] Add start.sh (Unix/macOS/Linux) for one-command setup + launch.
-- [x] Verify consistency of commands/scripts with current app entrypoint (Streamlit app.py) and dependencies.
-- [x] Final pass to ensure instructions are executable end-to-end without missing steps.
+- [x] 1. Extender `schemas.py` con modelos Pydantic de visualización en tiempo real.
+- [x] 2. Crear `realtime_bridge.py` con mapping de estado del simulador -> `VisualizationState`.
+- [ ] 3. Extender `simulator.py` con generador de ticks serializables en tiempo real.
+- [ ] 4. Mejorar `visualizations.py` para consumir payload técnico (event ticker / densidad).
+- [ ] 5. Integrar en `app.py` la vista dual sincronizada por tick (técnica + cartoon).
+- [ ] 6. Documentar payload/flujo en `docs/api.md` y actualizar `README_ES.md`.
+- [ ] 7. Agregar pruebas en `tests/test_realtime_bridge.py`.
+- [ ] 8. Ejecutar tests y ajustar errores.

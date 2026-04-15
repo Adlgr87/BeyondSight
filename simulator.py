@@ -1308,6 +1308,34 @@ def run_with_schedule(
     return historial
 
 
+def iter_simulation_ticks(
+    estado_inicial: dict,
+    escenario: str = "campana",
+    pasos: int = 50,
+    cada_n_pasos: int = 5,
+    config: dict | None = None,
+    verbose: bool = False,
+):
+    """
+    Generator version of simulation for real-time streaming.
+
+    Yields:
+        dict: state at each tick including normalized tick metadata.
+    """
+    historial = simular(
+        estado_inicial=estado_inicial,
+        escenario=escenario,
+        pasos=pasos,
+        cada_n_pasos=cada_n_pasos,
+        config=config,
+        verbose=verbose,
+    )
+    for idx, state in enumerate(historial):
+        tick_state = state.copy()
+        tick_state["_tick"] = idx
+        yield tick_state
+
+
 # ============================================================
 # EJECUCIÓN DIRECTA
 # ============================================================

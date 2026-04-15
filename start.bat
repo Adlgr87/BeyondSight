@@ -1,12 +1,12 @@
 @echo off
-setlocal ENABLEDELAYEDEXPANSION
+setlocal
 
 echo ==========================================
 echo BeyondSight - Inicio rapido para Windows
 echo ==========================================
 
 where py >nul 2>nul
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [ERROR] Python Launcher (py) no esta disponible.
     echo Instala Python 3.10+ desde https://www.python.org/downloads/
     exit /b 1
@@ -15,7 +15,7 @@ if %ERRORLEVEL% NEQ 0 (
 if not exist ".venv" (
     echo [INFO] Creando entorno virtual .venv...
     py -m venv .venv
-    if %ERRORLEVEL% NEQ 0 (
+    if errorlevel 1 (
         echo [ERROR] No se pudo crear el entorno virtual.
         exit /b 1
     )
@@ -23,21 +23,21 @@ if not exist ".venv" (
 
 echo [INFO] Activando entorno virtual...
 call .venv\Scripts\activate.bat
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [ERROR] No se pudo activar el entorno virtual.
     exit /b 1
 )
 
 echo [INFO] Actualizando pip...
 python -m pip install --upgrade pip
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [ERROR] Error al actualizar pip.
     exit /b 1
 )
 
 echo [INFO] Instalando dependencias...
 pip install -r requirements.txt
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [ERROR] Error al instalar dependencias.
     exit /b 1
 )
@@ -52,9 +52,9 @@ if not exist ".env" (
 
 echo [INFO] Iniciando BeyondSight en http://localhost:8501 ...
 streamlit run app.py
-set EXIT_CODE=%ERRORLEVEL%
+set "EXIT_CODE=%ERRORLEVEL%"
 
-if %EXIT_CODE% NEQ 0 (
+if not "%EXIT_CODE%"=="0" (
     echo [ERROR] Streamlit termino con codigo %EXIT_CODE%.
     exit /b %EXIT_CODE%
 )
