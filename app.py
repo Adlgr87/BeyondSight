@@ -104,6 +104,47 @@ html, body, [class*="css"] {
     display: inline-block; font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem; padding: 3px 10px; border-radius: 3px; margin: 2px;
 }
+.arch-hero {
+    background: linear-gradient(135deg, #0d1a2e 0%, #0d1520 60%, #0f1e10 100%);
+    border: 1px solid #1a3a2a;
+    border-left: 4px solid #bae67e;
+    border-radius: 6px;
+    padding: 20px 24px 16px 24px;
+    margin: 0 0 1.5rem 0;
+}
+.arch-hero-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.15rem; font-weight: 600;
+    color: #bae67e; letter-spacing: -0.3px;
+    margin-bottom: 6px;
+}
+.arch-hero-desc {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.88rem; color: #8ba7c0; line-height: 1.55;
+}
+.arch-hero-badge {
+    display: inline-block; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem; padding: 2px 8px; border-radius: 3px;
+    background: #0a1f0f; color: #bae67e; border: 1px solid #bae67e;
+    margin-right: 6px; text-transform: uppercase; letter-spacing: 1px;
+}
+.arch-sidebar-card {
+    background: #0d1a2e;
+    border: 1px solid #1a3a2a;
+    border-left: 3px solid #bae67e;
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin: 8px 0 4px 0;
+}
+.arch-sidebar-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem; font-weight: 600; color: #bae67e;
+    text-transform: uppercase; letter-spacing: 1px;
+}
+.arch-sidebar-desc {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.75rem; color: #8ba7c0; margin-top: 4px; line-height: 1.4;
+}
 .log-entry {
     font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
     color: #4d6680; padding: 3px 0; border-bottom: 1px solid #111820;
@@ -132,7 +173,24 @@ section[data-testid="stSidebar"] {
 # ------------------------------------------------------------
 st.markdown('<div class="bs-header">BeyondSight</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="bs-subtitle">Simulador híbrido · Dinámica social · LLM + Núcleo numérico</div>',
+    '<div class="bs-subtitle">Simulador híbrido · Dinámica social · LLM + Núcleo numérico · Arquitecto Social AI</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+<div class="arch-hero">
+  <div class="arch-hero-title">🧠 Arquitecto Social — Ingeniería Inversa de Dinámicas Sociales</div>
+  <div class="arch-hero-desc">
+    <span class="arch-hero-badge">★ Nuevo</span>
+    <span class="arch-hero-badge">LLM + Simulación</span>
+    Describe el <strong style="color:#c5cdd9">clima social, político o cultural</strong> que quieres lograr
+    y nuestro Agente LLM iterará con los modelos matemáticos para encontrar la
+    <strong style="color:#c5cdd9">receta de intervención exacta</strong>.
+    Disponible para redes sociales masivas (Modo Macro) y organizaciones (Modo Corporativo).
+  </div>
+</div>
+""",
     unsafe_allow_html=True,
 )
 
@@ -140,6 +198,20 @@ st.markdown(
 # SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
+
+    st.markdown(
+        """
+<div class="arch-sidebar-card">
+  <div class="arch-sidebar-title">🧠 Arquitecto Social</div>
+  <div class="arch-sidebar-desc">
+    Usa el <strong style="color:#bae67e">Agente LLM</strong> para diseñar estrategias
+    de intervención social o corporativa. ¡Activa la pestaña destacada!
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
 
     st.markdown("### BeyondSight Enterprise")
     st.markdown("Gratis para uso académico (AGPL-3.0). Para agencias, corporativos y consultoría privada, se requiere Licencia Comercial.")
@@ -303,7 +375,7 @@ with st.sidebar:
 # ------------------------------------------------------------
 # LÓGICA PRINCIPAL
 # ------------------------------------------------------------
-tab1, tab2 = st.tabs(['📊 Simulación Tradicional', '🧠 Arquitecto Social (Modo Inverso)'])
+tab2, tab1 = st.tabs(['🧠 Arquitecto Social ✦ Modo Inverso', '📊 Simulación Tradicional'])
 
 with tab1:
     if correr:
@@ -557,10 +629,24 @@ with tab1:
 
 
 with tab2:
-    st.markdown("### Arquitecto Social: Ingeniería Inversa 🧠")
+    st.markdown(
+        """
+<div style="margin-bottom:1rem;">
+  <span style="font-family:'IBM Plex Mono',monospace;font-size:1.35rem;font-weight:600;color:#bae67e;">
+    🧠 Arquitecto Social
+  </span>
+  <span style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:#3d5166;
+               text-transform:uppercase;letter-spacing:2px;margin-left:10px;">
+    Ingeniería Inversa · LLM + Simulación Numérica
+  </span>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "Describe el **clima social final** que deseas lograr en la red y nuestro Agente LLM "
-        "iterará con los modelos matemáticos hasta encontrar la receta sociológica exacta."
+        "iterará con los modelos matemáticos hasta encontrar la **receta de intervención exacta** — "
+        "ya sea para redes sociales masivas o para transformación organizacional."
     )
 
     # ── SELECTOR DE MODO ─────────────────────────────────────────
