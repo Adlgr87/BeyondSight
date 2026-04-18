@@ -247,7 +247,7 @@ with st.sidebar:
     )
 
     homofilia_tasa = st.slider(
-        t("homofily_rate", lang),
+        t("homophily_rate", lang),
         0.0, 0.2, 0.05, 0.01
     )
 
@@ -399,7 +399,7 @@ with tab1:
             )
             
             st.markdown("### Topología de Red Social (Física)")
-            fig_net = generate_social_network_viz(opiniones[-1], estado_final["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
+            fig_net = generate_social_network_viz(opiniones[-1], historial[-1]["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
             st.plotly_chart(fig_net, use_container_width=True)
             
             share_url = "https://github.com/Adlgr87/BeyondSight"
@@ -663,7 +663,7 @@ with tab2:
                 submit = st.form_submit_button("🔓 Desbloquear Reporte")
                 if submit and email:
                     with open("leads.csv", "a") as f:
-                        f.write(email + "\\n")
+                        f.write(email + "\n")
                     st.session_state["lead_captured"] = True
                     st.rerun()
         else:
@@ -707,14 +707,14 @@ with tab2:
             st.json(estrategia_display)
 
             report_text = (
-                f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\\n"
-                f"Modo: {modo_inv.upper()}\\n"
-                f"Objetivo: {st.session_state['objetivo_inverso']}\\n\\n"
-                f"{data_inv['narrativa']}\\n\\n"
-                "MATRIZ:\\n" + json.dumps(data_inv["estrategia"], indent=2) + "\\n\\n"
-                + "-" * 50 + "\\n"
-                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\\n"
-                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\\n"
+                f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\n"
+                f"Modo: {modo_inv.upper()}\n"
+                f"Objetivo: {st.session_state['objetivo_inverso']}\n\n"
+                f"{data_inv['narrativa']}\n\n"
+                "MATRIZ:\n" + json.dumps(data_inv["estrategia"], indent=2) + "\n\n"
+                + "-" * 50 + "\n"
+                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\n"
+                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\n"
                 + "-" * 50
             )
             st.download_button(
