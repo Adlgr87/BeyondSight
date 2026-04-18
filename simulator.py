@@ -34,7 +34,7 @@ import json
 import logging
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 import networkx as nx
 import numpy as np
@@ -795,8 +795,12 @@ def llamar_llm(estado: dict, escenario: str,
     """
     proveedor = cfg.get("proveedor", "heurístico")
 
+    # Uso *explícito* del selector heurístico: NO es fallback, es la elección
+    # intencional del usuario. No marcamos la bandera.
     if proveedor == "heurístico":
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec.setdefault("_llm_fallback", False)
+        return dec
 
     prompt = _construir_prompt(estado, escenario, historial_reciente, cfg)
     data   = None
@@ -809,22 +813,43 @@ def llamar_llm(estado: dict, escenario: str,
         modelo  = cfg.get("modelo", "").strip() or info["modelos_sugeridos"][0]
         if not api_key:
             log.error(f"'{proveedor}' requiere API key. → heurístico.")
-            return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+            # Fallback: el usuario pidió LLM remoto pero no hay credenciales.
+            dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+            dec["_llm_fallback"] = True
+            dec["_fallback_razon"] = f"{proveedor}: API key ausente"
+            return dec
         data = _llamar_openai_compatible(prompt, info["base_url"], api_key, modelo, cfg)
     else:
         log.error(f"Proveedor desconocido: '{proveedor}'. → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec["_llm_fallback"] = True
+        dec["_fallback_razon"] = f"proveedor desconocido: {proveedor}"
+        return dec
 
     if data is None:
         log.warning("LLM sin respuesta → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        # El LLM remoto falló (timeout, 5xx, JSON corrupto, etc.).
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec["_llm_fallback"] = True
+        dec["_fallback_razon"] = f"{proveedor}: sin respuesta"
+        return dec
 
     regla_id = int(data.get("regla", 0))
     if regla_id not in REGLAS.get(escenario, {}):
         log.warning(f"Regla inválida ({regla_id}) → fallback.")
-        return {"regla": 0, "params": {}, "razon": "fallback"}
+        return {
+            "regla": 0, "params": {}, "razon": "fallback",
+            "_llm_fallback": True,
+            "_fallback_razon": f"regla {regla_id} inválida para escenario '{escenario}'",
+        }
 
-    return {"regla": regla_id, "params": data.get("params", {}), "razon": data.get("razon", "")}
+    # Happy path: el LLM remoto respondió con una regla válida.
+    return {
+        "regla": regla_id,
+        "params": data.get("params", {}),
+        "razon": data.get("razon", ""),
+        "_llm_fallback": False,
+    }
 
 
 def llamar_llm_heuristico(estado: dict, escenario: str,
@@ -932,27 +957,32 @@ def calcular_efecto_grupos(estado: dict, cfg: dict) -> float:
 # SIMULADOR PRINCIPAL
 # ============================================================
 
-def simular(
+def iter_simulation_ticks(
     estado_inicial: dict,
     escenario: str = "campana",
     pasos: int = 50,
     cada_n_pasos: int = 5,
     config: dict | None = None,
     verbose: bool = True,
-) -> list[dict]:
+) -> Generator[dict, None, None]:
     """
-    Executes the hybrid simulation with all available rules.
+    Streaming generator: yields one state dict per tick (including t=0).
 
-    Args:
-        estado_inicial: Dictionary with at least "opinion" and "propaganda".
-        escenario: Scenario key in REGLAS.
-        pasos: Number of time steps.
-        cada_n_pasos: Frequency of LLM rule selection updates.
-        config: Override dictionary for DEFAULT_CONFIG.
-        verbose: If true, logs step details.
+    *tick* = one discrete simulation time step.
 
-    Returns:
-        A list of state dictionaries (including t=0).
+    This is the preferred entry point for UIs that need to render incrementally
+    (e.g. Streamlit with ``st.empty()`` + live chart updates). It avoids
+    materializing the full history in memory — critical for large agent counts
+    or long horizons.
+
+    Yields:
+        dict: A copy of the simulation state at each tick. The consumer is
+        free to keep or discard past states. For the legacy "return-full-list"
+        behaviour, use :func:`simular` which is now a thin wrapper around this
+        generator.
+
+    See also:
+        :func:`simular` — collects every tick into a list (backwards-compatible).
     """
     cfg         = {**DEFAULT_CONFIG, **(config or {})}
     r           = _get_rango(cfg)
@@ -966,29 +996,57 @@ def simular(
     estado.setdefault("opinion_grupo_b",  max(estado["opinion"] - 0.2 * _amplitud(cfg), r["min"]))
     estado.setdefault("pertenencia_grupo", 0.6)
 
-    historial: list[dict] = [estado.copy()]
+    # Ventana rodante mínima para el selector LLM: evita acumular todo el
+    # historial solo para alimentar la ventana. Tamaño = ventana_historial_llm.
+    ventana_selector: list[dict] = [estado.copy()]
+    ventana_max = max(1, int(cfg.get("ventana_historial_llm", 10)))
+
     regla_actual   = 0
     params_actuales: dict = {}
     razon_actual   = "inicial"
 
-    def _seleccionar(est, hist):
-        ventana = hist[-cfg["ventana_historial_llm"]:]
+    def _seleccionar(est, ventana):
         dec     = llamar_llm(est, escenario, ventana, cfg)
         r_id    = dec["regla"]
         p       = _validar_params(NOMBRES_REGLAS[r_id], dec.get("params", {}))
-        return r_id, p, dec.get("razon", "")
+        return (
+            r_id, p, dec.get("razon", ""),
+            bool(dec.get("_llm_fallback", False)),
+            dec.get("_fallback_razon"),
+        )
 
-    regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+    (regla_actual, params_actuales, razon_actual,
+     es_fallback, razon_fallback) = _seleccionar(estado, ventana_selector)
+    estado["_paso"]            = 0
+    estado["_regla"]           = regla_actual
+    estado["_regla_nombre"]    = NOMBRES_REGLAS[regla_actual]
+    estado["_razon"]           = razon_actual
+    estado["_rango"]           = cfg["rango"]
+    estado["_llm_fallback"]    = es_fallback
+    if razon_fallback:
+        estado["_fallback_razon"] = razon_fallback
     if verbose:
         log.info(
             f"t=0 | [{proveedor}] rango={r['min']},{r['max']} "
             f"| {NOMBRES_REGLAS[regla_actual]} | {razon_actual}"
         )
 
+    # Emite t=0 inmediatamente para que consumidores en streaming
+    # (Streamlit u otros) puedan renderizar sin esperar el primer tick.
+    yield estado.copy()
+
+    opinion_inicial = estado["opinion"]
+
     for paso in range(1, pasos + 1):
 
         if paso % cada_n_pasos == 0:
-            regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+            (regla_actual, params_actuales, razon_actual,
+             es_fallback, razon_fallback) = _seleccionar(estado, ventana_selector)
+            estado["_llm_fallback"] = es_fallback
+            if razon_fallback:
+                estado["_fallback_razon"] = razon_fallback
+            elif "_fallback_razon" in estado and not es_fallback:
+                estado.pop("_fallback_razon", None)
             if verbose:
                 log.info(
                     f"t={paso:3d} | [{proveedor}] {NOMBRES_REGLAS[regla_actual]:22s} "
@@ -1023,24 +1081,72 @@ def simular(
             if k in estado_regla:
                 nuevo[k] = estado_regla[k]
 
-        nuevo["opinion_prev"]  = estado["opinion"]
-        nuevo["opinion"]       = opinion_final
-        nuevo["_paso"]         = paso
-        nuevo["_regla"]        = regla_actual
-        nuevo["_regla_nombre"] = NOMBRES_REGLAS[regla_actual]
-        nuevo["_razon"]        = razon_actual
-        nuevo["_rango"]        = cfg["rango"]
+        nuevo["opinion_prev"]   = estado["opinion"]
+        nuevo["opinion"]        = opinion_final
+        nuevo["_paso"]          = paso
+        nuevo["_regla"]         = regla_actual
+        nuevo["_regla_nombre"]  = NOMBRES_REGLAS[regla_actual]
+        nuevo["_razon"]         = razon_actual
+        nuevo["_rango"]         = cfg["rango"]
+        # Propaga el estado de fallback del selector (persiste entre
+        # reselecciones hasta que el LLM vuelva a responder OK).
+        nuevo["_llm_fallback"]  = bool(estado.get("_llm_fallback", False))
+        if "_fallback_razon" in estado:
+            nuevo["_fallback_razon"] = estado["_fallback_razon"]
 
         estado = nuevo
-        historial.append(estado.copy())
+
+        # Actualiza ventana rodante (solo los últimos N estados)
+        ventana_selector.append(estado.copy())
+        if len(ventana_selector) > ventana_max:
+            ventana_selector = ventana_selector[-ventana_max:]
+
+        yield estado.copy()
 
     if verbose:
         log.info(
             f"Completo: {pasos} pasos | "
-            f"{historial[0]['opinion']:+.3f} → {historial[-1]['opinion']:+.3f} "
+            f"{opinion_inicial:+.3f} → {estado['opinion']:+.3f} "
             f"(neutro={_neutro(cfg)})"
         )
-    return historial
+
+
+def simular(
+    estado_inicial: dict,
+    escenario: str = "campana",
+    pasos: int = 50,
+    cada_n_pasos: int = 5,
+    config: dict | None = None,
+    verbose: bool = True,
+) -> list[dict]:
+    """
+    Executes the hybrid simulation with all available rules.
+
+    Backwards-compatible wrapper around :func:`iter_simulation_ticks` that
+    collects every yielded state into a list. Prefer the streaming generator
+    for large simulations or live UIs.
+
+    Args:
+        estado_inicial: Dictionary with at least "opinion" and "propaganda".
+        escenario: Scenario key in REGLAS.
+        pasos: Number of time steps.
+        cada_n_pasos: Frequency of LLM rule selection updates.
+        config: Override dictionary for DEFAULT_CONFIG.
+        verbose: If true, logs step details.
+
+    Returns:
+        A list of state dictionaries (including t=0).
+    """
+    return list(
+        iter_simulation_ticks(
+            estado_inicial=estado_inicial,
+            escenario=escenario,
+            pasos=pasos,
+            cada_n_pasos=cada_n_pasos,
+            config=config,
+            verbose=verbose,
+        )
+    )
 
 
 # ============================================================
@@ -1103,6 +1209,51 @@ def simular_multiples(
 # ============================================================
 # UTILIDADES
 # ============================================================
+
+def cambio_significativo_opinion(
+    estado: dict,
+    umbral: float = 0.05,
+) -> bool:
+    """
+    Devuelve True si la opinión del estado cambió en el último tick
+    más que ``umbral`` respecto a su propio valor previo.
+
+    Compara ``estado["opinion"]`` contra ``estado["opinion_prev"]`` —
+    NUNCA contra la media global de la población. Esta distinción es
+    crítica para cuando el simulador evolucione a multi-agente (Fase 1):
+    usar la media global como referencia para detectar "cambio" genera
+    falsos positivos en todos los agentes situados lejos de la media,
+    aunque esos agentes no hayan cambiado de opinión en absoluto.
+
+    Esta función existe como utilidad pública y blindaje preventivo
+    para que cualquier código río abajo que necesite responder a
+    cambios de opinión lo haga correctamente.
+
+    Args:
+        estado: Dict de estado. Debe contener "opinion"; si falta
+                "opinion_prev" se asume que no hubo cambio.
+        umbral: Magnitud mínima del cambio para considerarse
+                significativo. Default 0.05 en unidades de opinión.
+
+    Returns:
+        True si ``abs(opinion - opinion_prev) > umbral``.
+
+    Examples:
+        >>> cambio_significativo_opinion({"opinion": 0.3, "opinion_prev": 0.3})
+        False
+        >>> cambio_significativo_opinion({"opinion": 0.5, "opinion_prev": 0.3})
+        True
+        >>> cambio_significativo_opinion({"opinion": 0.31, "opinion_prev": 0.3})
+        False
+        >>> cambio_significativo_opinion({"opinion": 0.5})  # sin prev
+        False
+    """
+    actual = estado.get("opinion")
+    previo = estado.get("opinion_prev")
+    if actual is None or previo is None:
+        return False
+    return abs(float(actual) - float(previo)) > float(umbral)
+
 
 def resumen_historial(historial: list[dict], config: dict | None = None) -> dict:
     """

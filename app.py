@@ -4,6 +4,7 @@ Simulador híbrido con soporte completo de modelos extendidos
 """
 
 import json
+import logging
 import os
 from collections import Counter
 
@@ -22,6 +23,7 @@ from simulator import (
     PROVEEDORES,
     RANGOS_DISPONIBLES,
     get_graph_metrics,
+    iter_simulation_ticks,
     resumen_historial,
     simular,
     simular_multiples,
@@ -29,6 +31,40 @@ from simulator import (
 
 # Load environment variables from .env
 load_dotenv()
+
+# ------------------------------------------------------------
+# MANEJO SEGURO DE ERRORES (Fase 0.3)
+# ------------------------------------------------------------
+# Logger propio — la traza completa va solo al fichero/stderr.
+_app_log = logging.getLogger("beyondsight.ui")
+if not _app_log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    _app_log.addHandler(_h)
+    _app_log.setLevel(logging.INFO)
+
+
+def _mostrar_error_seguro(e: Exception, contexto: str) -> None:
+    """
+    Muestra un error genérico al usuario sin filtrar el contenido de la
+    excepción a la UI. Stack trace y ``str(e)`` quedan solo en el log
+    (stderr / archivo), nunca en pantalla.
+
+    Motivación: ``str(e)`` en proveedores HTTP o parseos JSON suele
+    incluir rutas internas, API keys truncadas, URLs con query params
+    sensibles, o fragmentos de payload. ``st.error(f"...: {e}")`` filtra
+    todo eso a cualquier usuario con acceso a la UI.
+
+    Args:
+        e: Excepción capturada.
+        contexto: Etiqueta humana del subsistema que falló
+                  (p.ej. "carga de CSV", "llamada a LLM").
+    """
+    _app_log.exception("Error en %s: %s", contexto, e)
+    st.error(
+        f"⚠️ Error en {contexto}: {type(e).__name__}. "
+        f"Revisa los logs del servidor para más detalles."
+    )
 
 # ------------------------------------------------------------
 # PÁGINA
@@ -305,10 +341,32 @@ with tab1:
             estado_inicial["narrativa_b"] = narrativa_b
 
         with st.spinner(t("simulating", lang)):
-            historial = simular(
+            # ── Streaming real (Fase 0.1): consumimos el generador
+            # tick a tick y renderizamos un mini-chart de progreso sin
+            # materializar todo el historial antes del primer frame.
+            historial: list[dict] = []
+            progreso_holder = st.empty()
+            chart_holder    = st.empty()
+            # Refresco cada N ticks para no saturar el reruns de Streamlit.
+            refresco_cada = max(1, pasos // 20)
+            for tick in iter_simulation_ticks(
                 estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
                 config=config_run, verbose=False,
-            )
+            ):
+                historial.append(tick)
+                paso_actual = tick.get("_paso", len(historial) - 1)
+                if paso_actual % refresco_cada == 0 or paso_actual == pasos:
+                    progreso_holder.progress(
+                        min(1.0, paso_actual / max(1, pasos)),
+                        text=f"t={paso_actual}/{pasos} · op={tick['opinion']:+.3f}",
+                    )
+                    chart_holder.line_chart(
+                        pd.DataFrame({"opinion": [h["opinion"] for h in historial]})
+                    )
+            # Limpia el progreso/preview; el render definitivo va después.
+            progreso_holder.empty()
+            chart_holder.empty()
+
             resultado_prob = None
             if modo_prob:
                 resultado_prob = simular_multiples(
@@ -319,6 +377,22 @@ with tab1:
         stats     = resumen_historial(historial, config_run)
         opiniones = [h["opinion"] for h in historial]
         delta     = stats["delta_total"]
+
+        # ── Aviso de fallback LLM (Fase 0.2) ───────────────────
+        # Cuando el LLM remoto falló en algún tick, el estado queda
+        # marcado con _llm_fallback=True y ese indicador se propaga
+        # hasta que el selector vuelva a responder correctamente.
+        ticks_en_fallback = [h for h in historial if h.get("_llm_fallback")]
+        if ticks_en_fallback:
+            razones_fb = {h.get("_fallback_razon", "desconocido") for h in ticks_en_fallback}
+            st.warning(
+                f"⚠️ **Resultado parcialmente heurístico** — "
+                f"{len(ticks_en_fallback)}/{len(historial)} ticks usaron el "
+                f"selector de fallback porque el LLM remoto no respondió. "
+                f"Causas: {', '.join(sorted(razones_fb))}. "
+                f"Las decisiones mostradas en esos pasos reflejan la "
+                f"heurística local, no el criterio del LLM configurado."
+            )
 
         # ── BADGES de mecanismos activos ───────────────────────
         badges = []
@@ -463,8 +537,17 @@ with tab1:
                     extras += f" | adoptantes={h['_fraccion_adoptantes']:.2f}"
                 if "_sim_grupo_a" in h:
                     extras += f" | sim_A={h['_sim_grupo_a']:.2f} sim_B={h.get('_sim_grupo_b',0):.2f}"
+                # Fase 0.2: flag visible por fila cuando el selector cayó
+                # a heurística de fallback en este tick.
+                fb_prefix = ""
+                if h.get("_llm_fallback"):
+                    fb_prefix = (
+                        '<span style="color:#ff8f40;font-weight:600" '
+                        'title="LLM remoto no respondió — heurística de fallback">'
+                        '⚠ fallback</span> │ '
+                    )
                 st.markdown(
-                    f'<div class="log-entry">t={h.get("_paso","?"):3} │ '
+                    f'<div class="log-entry">{fb_prefix}t={h.get("_paso","?"):3} │ '
                     f'<b>{h.get("_regla_nombre","?")}</b> │ '
                     f'op={h.get("opinion",0):+.3f} │ {h.get("_razon","")}{extras}</div>',
                     unsafe_allow_html=True,
@@ -549,7 +632,7 @@ with tab2:
                     else:
                         st.error("El CSV necesita columnas 'source' y 'target'.")
                 except Exception as e:
-                    st.error(f"Error al cargar el CSV: {e}")
+                    _mostrar_error_seguro(e, "carga de CSV de la red organizacional")
 
         with metrics_col:
             if grafo_org is not None:
