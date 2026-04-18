@@ -1210,6 +1210,51 @@ def simular_multiples(
 # UTILIDADES
 # ============================================================
 
+def cambio_significativo_opinion(
+    estado: dict,
+    umbral: float = 0.05,
+) -> bool:
+    """
+    Devuelve True si la opinión del estado cambió en el último tick
+    más que ``umbral`` respecto a su propio valor previo.
+
+    Compara ``estado["opinion"]`` contra ``estado["opinion_prev"]`` —
+    NUNCA contra la media global de la población. Esta distinción es
+    crítica para cuando el simulador evolucione a multi-agente (Fase 1):
+    usar la media global como referencia para detectar "cambio" genera
+    falsos positivos en todos los agentes situados lejos de la media,
+    aunque esos agentes no hayan cambiado de opinión en absoluto.
+
+    Esta función existe como utilidad pública y blindaje preventivo
+    para que cualquier código río abajo que necesite responder a
+    cambios de opinión lo haga correctamente.
+
+    Args:
+        estado: Dict de estado. Debe contener "opinion"; si falta
+                "opinion_prev" se asume que no hubo cambio.
+        umbral: Magnitud mínima del cambio para considerarse
+                significativo. Default 0.05 en unidades de opinión.
+
+    Returns:
+        True si ``abs(opinion - opinion_prev) > umbral``.
+
+    Examples:
+        >>> cambio_significativo_opinion({"opinion": 0.3, "opinion_prev": 0.3})
+        False
+        >>> cambio_significativo_opinion({"opinion": 0.5, "opinion_prev": 0.3})
+        True
+        >>> cambio_significativo_opinion({"opinion": 0.31, "opinion_prev": 0.3})
+        False
+        >>> cambio_significativo_opinion({"opinion": 0.5})  # sin prev
+        False
+    """
+    actual = estado.get("opinion")
+    previo = estado.get("opinion_prev")
+    if actual is None or previo is None:
+        return False
+    return abs(float(actual) - float(previo)) > float(umbral)
+
+
 def resumen_historial(historial: list[dict], config: dict | None = None) -> dict:
     """
     Calculates descriptive statistics for a simulation history.
