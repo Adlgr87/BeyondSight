@@ -22,6 +22,7 @@ from simulator import (
     PROVEEDORES,
     RANGOS_DISPONIBLES,
     get_graph_metrics,
+    iter_simulation_ticks,
     resumen_historial,
     simular,
     simular_multiples,
@@ -305,10 +306,32 @@ with tab1:
             estado_inicial["narrativa_b"] = narrativa_b
 
         with st.spinner(t("simulating", lang)):
-            historial = simular(
+            # ── Streaming real (Fase 0.1): consumimos el generador
+            # tick a tick y renderizamos un mini-chart de progreso sin
+            # materializar todo el historial antes del primer frame.
+            historial: list[dict] = []
+            progreso_holder = st.empty()
+            chart_holder    = st.empty()
+            # Refresco cada N ticks para no saturar el reruns de Streamlit.
+            refresco_cada = max(1, pasos // 20)
+            for tick in iter_simulation_ticks(
                 estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
                 config=config_run, verbose=False,
-            )
+            ):
+                historial.append(tick)
+                paso_actual = tick.get("_paso", len(historial) - 1)
+                if paso_actual % refresco_cada == 0 or paso_actual == pasos:
+                    progreso_holder.progress(
+                        min(1.0, paso_actual / max(1, pasos)),
+                        text=f"t={paso_actual}/{pasos} · op={tick['opinion']:+.3f}",
+                    )
+                    chart_holder.line_chart(
+                        pd.DataFrame({"opinion": [h["opinion"] for h in historial]})
+                    )
+            # Limpia el progreso/preview; el render definitivo va después.
+            progreso_holder.empty()
+            chart_holder.empty()
+
             resultado_prob = None
             if modo_prob:
                 resultado_prob = simular_multiples(

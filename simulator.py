@@ -34,7 +34,7 @@ import json
 import logging
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 import networkx as nx
 import numpy as np
@@ -932,27 +932,32 @@ def calcular_efecto_grupos(estado: dict, cfg: dict) -> float:
 # SIMULADOR PRINCIPAL
 # ============================================================
 
-def simular(
+def iter_simulation_ticks(
     estado_inicial: dict,
     escenario: str = "campana",
     pasos: int = 50,
     cada_n_pasos: int = 5,
     config: dict | None = None,
     verbose: bool = True,
-) -> list[dict]:
+) -> Generator[dict, None, None]:
     """
-    Executes the hybrid simulation with all available rules.
+    Streaming generator: yields one state dict per tick (including t=0).
 
-    Args:
-        estado_inicial: Dictionary with at least "opinion" and "propaganda".
-        escenario: Scenario key in REGLAS.
-        pasos: Number of time steps.
-        cada_n_pasos: Frequency of LLM rule selection updates.
-        config: Override dictionary for DEFAULT_CONFIG.
-        verbose: If true, logs step details.
+    *tick* = one discrete simulation time step.
 
-    Returns:
-        A list of state dictionaries (including t=0).
+    This is the preferred entry point for UIs that need to render incrementally
+    (e.g. Streamlit with ``st.empty()`` + live chart updates). It avoids
+    materializing the full history in memory — critical for large agent counts
+    or long horizons.
+
+    Yields:
+        dict: A copy of the simulation state at each tick. The consumer is
+        free to keep or discard past states. For the legacy "return-full-list"
+        behaviour, use :func:`simular` which is now a thin wrapper around this
+        generator.
+
+    See also:
+        :func:`simular` — collects every tick into a list (backwards-compatible).
     """
     cfg         = {**DEFAULT_CONFIG, **(config or {})}
     r           = _get_rango(cfg)
@@ -966,29 +971,43 @@ def simular(
     estado.setdefault("opinion_grupo_b",  max(estado["opinion"] - 0.2 * _amplitud(cfg), r["min"]))
     estado.setdefault("pertenencia_grupo", 0.6)
 
-    historial: list[dict] = [estado.copy()]
+    # Ventana rodante mínima para el selector LLM: evita acumular todo el
+    # historial solo para alimentar la ventana. Tamaño = ventana_historial_llm.
+    ventana_selector: list[dict] = [estado.copy()]
+    ventana_max = max(1, int(cfg.get("ventana_historial_llm", 10)))
+
     regla_actual   = 0
     params_actuales: dict = {}
     razon_actual   = "inicial"
 
-    def _seleccionar(est, hist):
-        ventana = hist[-cfg["ventana_historial_llm"]:]
+    def _seleccionar(est, ventana):
         dec     = llamar_llm(est, escenario, ventana, cfg)
         r_id    = dec["regla"]
         p       = _validar_params(NOMBRES_REGLAS[r_id], dec.get("params", {}))
         return r_id, p, dec.get("razon", "")
 
-    regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+    regla_actual, params_actuales, razon_actual = _seleccionar(estado, ventana_selector)
+    estado["_paso"]         = 0
+    estado["_regla"]        = regla_actual
+    estado["_regla_nombre"] = NOMBRES_REGLAS[regla_actual]
+    estado["_razon"]        = razon_actual
+    estado["_rango"]        = cfg["rango"]
     if verbose:
         log.info(
             f"t=0 | [{proveedor}] rango={r['min']},{r['max']} "
             f"| {NOMBRES_REGLAS[regla_actual]} | {razon_actual}"
         )
 
+    # Emite t=0 inmediatamente para que consumidores en streaming
+    # (Streamlit u otros) puedan renderizar sin esperar el primer tick.
+    yield estado.copy()
+
+    opinion_inicial = estado["opinion"]
+
     for paso in range(1, pasos + 1):
 
         if paso % cada_n_pasos == 0:
-            regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+            regla_actual, params_actuales, razon_actual = _seleccionar(estado, ventana_selector)
             if verbose:
                 log.info(
                     f"t={paso:3d} | [{proveedor}] {NOMBRES_REGLAS[regla_actual]:22s} "
@@ -1032,15 +1051,58 @@ def simular(
         nuevo["_rango"]        = cfg["rango"]
 
         estado = nuevo
-        historial.append(estado.copy())
+
+        # Actualiza ventana rodante (solo los últimos N estados)
+        ventana_selector.append(estado.copy())
+        if len(ventana_selector) > ventana_max:
+            ventana_selector = ventana_selector[-ventana_max:]
+
+        yield estado.copy()
 
     if verbose:
         log.info(
             f"Completo: {pasos} pasos | "
-            f"{historial[0]['opinion']:+.3f} → {historial[-1]['opinion']:+.3f} "
+            f"{opinion_inicial:+.3f} → {estado['opinion']:+.3f} "
             f"(neutro={_neutro(cfg)})"
         )
-    return historial
+
+
+def simular(
+    estado_inicial: dict,
+    escenario: str = "campana",
+    pasos: int = 50,
+    cada_n_pasos: int = 5,
+    config: dict | None = None,
+    verbose: bool = True,
+) -> list[dict]:
+    """
+    Executes the hybrid simulation with all available rules.
+
+    Backwards-compatible wrapper around :func:`iter_simulation_ticks` that
+    collects every yielded state into a list. Prefer the streaming generator
+    for large simulations or live UIs.
+
+    Args:
+        estado_inicial: Dictionary with at least "opinion" and "propaganda".
+        escenario: Scenario key in REGLAS.
+        pasos: Number of time steps.
+        cada_n_pasos: Frequency of LLM rule selection updates.
+        config: Override dictionary for DEFAULT_CONFIG.
+        verbose: If true, logs step details.
+
+    Returns:
+        A list of state dictionaries (including t=0).
+    """
+    return list(
+        iter_simulation_ticks(
+            estado_inicial=estado_inicial,
+            escenario=escenario,
+            pasos=pasos,
+            cada_n_pasos=cada_n_pasos,
+            config=config,
+            verbose=verbose,
+        )
+    )
 
 
 # ============================================================
