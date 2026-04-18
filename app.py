@@ -252,6 +252,36 @@ with st.sidebar:
     )
 
     st.markdown("---")
+    st.markdown(t("egt_section", lang))
+
+    activar_replicador = st.toggle(t("activate_replicator", lang), value=False)
+    payoff_matrix_cfg: list = [[1.0, 0.0], [0.0, 1.0]]
+    dt_cfg: float = 0.1
+    if activar_replicador:
+        payoff_raw = st.text_area(
+            t("payoff_matrix", lang),
+            value="[[1.0, 0.0], [0.0, 1.0]]",
+            height=80,
+            help="Introduce una matriz 2×2 en formato JSON. Ejemplo: [[1,0],[0,1]]",
+        )
+        try:
+            parsed = json.loads(payoff_raw)
+            if (
+                isinstance(parsed, list)
+                and len(parsed) == 2
+                and all(isinstance(row, list) and len(row) == 2 for row in parsed)
+            ):
+                payoff_matrix_cfg = parsed
+            else:
+                st.error("La matriz debe ser 2×2. Usando identidad como fallback.")
+        except json.JSONDecodeError:
+            st.error("JSON inválido para la matriz de pagos. Usando identidad como fallback.")
+        dt_cfg = st.slider(
+            t("dt_step", lang),
+            min_value=0.01, max_value=1.0, value=0.1, step=0.01,
+        )
+
+    st.markdown("---")
     st.markdown(t("simulation_settings", lang))
 
     pasos       = st.slider(t("time_steps", lang),   20, 300, 60, 5)
@@ -292,6 +322,10 @@ with tab1:
             "hk_epsilon":         hk_epsilon,
             "homofilia_tasa":     homofilia_tasa,
         }
+        if activar_replicador:
+            config_run["modelo_matematico"] = "Replicator"
+            config_run["payoff_matrix"]     = payoff_matrix_cfg
+            config_run["dt"]                = dt_cfg
 
         estado_inicial = {
             "opinion":          opinion0,
@@ -333,6 +367,21 @@ with tab1:
             f'rango {nombre_rango.split("—")[0].strip()} · neutro={neutro}</span>'
         )
         st.markdown(" ".join(badges), unsafe_allow_html=True)
+
+        # ── EWS / TDA INDICATORS ───────────────────────────────
+        ews_final = historial[-1].get("ews", {})
+        ews_flags_final = ews_final.get("flags", {})
+        if any(ews_flags_final.values()):
+            st.warning(
+                t("ews_warning", lang,
+                  hv=ews_flags_final.get("high_variance", False),
+                  ha=ews_flags_final.get("high_autocorr", False),
+                  hs=ews_flags_final.get("high_skewness", False)),
+            )
+
+        tda_final = historial[-1].get("tda_change", False)
+        if tda_final:
+            st.error(t("tda_change", lang))
 
         # ── MÉTRICAS ───────────────────────────────────────────
         st.markdown(t("results", lang))
@@ -599,6 +648,10 @@ with tab2:
                 # Pasar tamaño del grafo para el cálculo de proporciones target_nodes
                 "_n_nodos": grafo_org.number_of_nodes() if grafo_org else 20,
             }
+            if activar_replicador:
+                config_run["modelo_matematico"] = "Replicator"
+                config_run["payoff_matrix"]     = payoff_matrix_cfg
+                config_run["dt"]                = dt_cfg
             estado_inicial = {
                 "opinion": opinion0,
                 "propaganda": propaganda,
