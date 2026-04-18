@@ -1,6 +1,8 @@
 import pytest
 from social_architect import evaluar_resultado
 
+CONSENSUS_SUCCESS_THRESHOLD = 90
+
 def test_evaluar_resultado_consenso():
     # Opinions tightly clustered around neutral (0.5) to represent genuine consensus
     objetivo = "consenso"
@@ -15,7 +17,7 @@ def test_evaluar_resultado_consenso():
 
     score, feedback = evaluar_resultado(historial, objetivo, config)
 
-    assert score >= 90
+    assert score >= CONSENSUS_SUCCESS_THRESHOLD
     assert "éxito" in feedback.lower() or "convergió" in feedback.lower()
 
 def test_evaluar_resultado_falla_polarizacion():
@@ -29,7 +31,7 @@ def test_evaluar_resultado_falla_polarizacion():
 
     score, feedback = evaluar_resultado(historial, objetivo, config)
 
-    assert score < 90
+    assert score < CONSENSUS_SUCCESS_THRESHOLD
     assert len(feedback) > 0
 
 def test_parsear_estrategia_json_regex():
