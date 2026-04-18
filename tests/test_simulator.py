@@ -24,7 +24,6 @@ class SimulatorTests(unittest.TestCase):
             escenario="campana",
             pasos=20,
             cada_n_pasos=5,
-            usar_llm_real=False,
             verbose=False,
         )
 
@@ -39,7 +38,6 @@ class SimulatorTests(unittest.TestCase):
             escenario="campana",
             pasos=10,
             cada_n_pasos=2,
-            usar_llm_real=False,
             verbose=False,
         )
         stats = resumen_historial(historial)
