@@ -795,8 +795,12 @@ def llamar_llm(estado: dict, escenario: str,
     """
     proveedor = cfg.get("proveedor", "heurístico")
 
+    # Uso *explícito* del selector heurístico: NO es fallback, es la elección
+    # intencional del usuario. No marcamos la bandera.
     if proveedor == "heurístico":
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec.setdefault("_llm_fallback", False)
+        return dec
 
     prompt = _construir_prompt(estado, escenario, historial_reciente, cfg)
     data   = None
@@ -809,22 +813,43 @@ def llamar_llm(estado: dict, escenario: str,
         modelo  = cfg.get("modelo", "").strip() or info["modelos_sugeridos"][0]
         if not api_key:
             log.error(f"'{proveedor}' requiere API key. → heurístico.")
-            return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+            # Fallback: el usuario pidió LLM remoto pero no hay credenciales.
+            dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+            dec["_llm_fallback"] = True
+            dec["_fallback_razon"] = f"{proveedor}: API key ausente"
+            return dec
         data = _llamar_openai_compatible(prompt, info["base_url"], api_key, modelo, cfg)
     else:
         log.error(f"Proveedor desconocido: '{proveedor}'. → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec["_llm_fallback"] = True
+        dec["_fallback_razon"] = f"proveedor desconocido: {proveedor}"
+        return dec
 
     if data is None:
         log.warning("LLM sin respuesta → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        # El LLM remoto falló (timeout, 5xx, JSON corrupto, etc.).
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec["_llm_fallback"] = True
+        dec["_fallback_razon"] = f"{proveedor}: sin respuesta"
+        return dec
 
     regla_id = int(data.get("regla", 0))
     if regla_id not in REGLAS.get(escenario, {}):
         log.warning(f"Regla inválida ({regla_id}) → fallback.")
-        return {"regla": 0, "params": {}, "razon": "fallback"}
+        return {
+            "regla": 0, "params": {}, "razon": "fallback",
+            "_llm_fallback": True,
+            "_fallback_razon": f"regla {regla_id} inválida para escenario '{escenario}'",
+        }
 
-    return {"regla": regla_id, "params": data.get("params", {}), "razon": data.get("razon", "")}
+    # Happy path: el LLM remoto respondió con una regla válida.
+    return {
+        "regla": regla_id,
+        "params": data.get("params", {}),
+        "razon": data.get("razon", ""),
+        "_llm_fallback": False,
+    }
 
 
 def llamar_llm_heuristico(estado: dict, escenario: str,
@@ -984,14 +1009,22 @@ def iter_simulation_ticks(
         dec     = llamar_llm(est, escenario, ventana, cfg)
         r_id    = dec["regla"]
         p       = _validar_params(NOMBRES_REGLAS[r_id], dec.get("params", {}))
-        return r_id, p, dec.get("razon", "")
+        return (
+            r_id, p, dec.get("razon", ""),
+            bool(dec.get("_llm_fallback", False)),
+            dec.get("_fallback_razon"),
+        )
 
-    regla_actual, params_actuales, razon_actual = _seleccionar(estado, ventana_selector)
-    estado["_paso"]         = 0
-    estado["_regla"]        = regla_actual
-    estado["_regla_nombre"] = NOMBRES_REGLAS[regla_actual]
-    estado["_razon"]        = razon_actual
-    estado["_rango"]        = cfg["rango"]
+    (regla_actual, params_actuales, razon_actual,
+     es_fallback, razon_fallback) = _seleccionar(estado, ventana_selector)
+    estado["_paso"]            = 0
+    estado["_regla"]           = regla_actual
+    estado["_regla_nombre"]    = NOMBRES_REGLAS[regla_actual]
+    estado["_razon"]           = razon_actual
+    estado["_rango"]           = cfg["rango"]
+    estado["_llm_fallback"]    = es_fallback
+    if razon_fallback:
+        estado["_fallback_razon"] = razon_fallback
     if verbose:
         log.info(
             f"t=0 | [{proveedor}] rango={r['min']},{r['max']} "
@@ -1007,7 +1040,13 @@ def iter_simulation_ticks(
     for paso in range(1, pasos + 1):
 
         if paso % cada_n_pasos == 0:
-            regla_actual, params_actuales, razon_actual = _seleccionar(estado, ventana_selector)
+            (regla_actual, params_actuales, razon_actual,
+             es_fallback, razon_fallback) = _seleccionar(estado, ventana_selector)
+            estado["_llm_fallback"] = es_fallback
+            if razon_fallback:
+                estado["_fallback_razon"] = razon_fallback
+            elif "_fallback_razon" in estado and not es_fallback:
+                estado.pop("_fallback_razon", None)
             if verbose:
                 log.info(
                     f"t={paso:3d} | [{proveedor}] {NOMBRES_REGLAS[regla_actual]:22s} "
@@ -1042,13 +1081,18 @@ def iter_simulation_ticks(
             if k in estado_regla:
                 nuevo[k] = estado_regla[k]
 
-        nuevo["opinion_prev"]  = estado["opinion"]
-        nuevo["opinion"]       = opinion_final
-        nuevo["_paso"]         = paso
-        nuevo["_regla"]        = regla_actual
-        nuevo["_regla_nombre"] = NOMBRES_REGLAS[regla_actual]
-        nuevo["_razon"]        = razon_actual
-        nuevo["_rango"]        = cfg["rango"]
+        nuevo["opinion_prev"]   = estado["opinion"]
+        nuevo["opinion"]        = opinion_final
+        nuevo["_paso"]          = paso
+        nuevo["_regla"]         = regla_actual
+        nuevo["_regla_nombre"]  = NOMBRES_REGLAS[regla_actual]
+        nuevo["_razon"]         = razon_actual
+        nuevo["_rango"]         = cfg["rango"]
+        # Propaga el estado de fallback del selector (persiste entre
+        # reselecciones hasta que el LLM vuelva a responder OK).
+        nuevo["_llm_fallback"]  = bool(estado.get("_llm_fallback", False))
+        if "_fallback_razon" in estado:
+            nuevo["_fallback_razon"] = estado["_fallback_razon"]
 
         estado = nuevo
 

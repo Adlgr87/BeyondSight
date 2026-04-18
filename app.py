@@ -343,6 +343,22 @@ with tab1:
         opiniones = [h["opinion"] for h in historial]
         delta     = stats["delta_total"]
 
+        # ── Aviso de fallback LLM (Fase 0.2) ───────────────────
+        # Cuando el LLM remoto falló en algún tick, el estado queda
+        # marcado con _llm_fallback=True y ese indicador se propaga
+        # hasta que el selector vuelva a responder correctamente.
+        ticks_en_fallback = [h for h in historial if h.get("_llm_fallback")]
+        if ticks_en_fallback:
+            razones_fb = {h.get("_fallback_razon", "desconocido") for h in ticks_en_fallback}
+            st.warning(
+                f"⚠️ **Resultado parcialmente heurístico** — "
+                f"{len(ticks_en_fallback)}/{len(historial)} ticks usaron el "
+                f"selector de fallback porque el LLM remoto no respondió. "
+                f"Causas: {', '.join(sorted(razones_fb))}. "
+                f"Las decisiones mostradas en esos pasos reflejan la "
+                f"heurística local, no el criterio del LLM configurado."
+            )
+
         # ── BADGES de mecanismos activos ───────────────────────
         badges = []
         if sesgo_conf > 0.1:
@@ -486,8 +502,17 @@ with tab1:
                     extras += f" | adoptantes={h['_fraccion_adoptantes']:.2f}"
                 if "_sim_grupo_a" in h:
                     extras += f" | sim_A={h['_sim_grupo_a']:.2f} sim_B={h.get('_sim_grupo_b',0):.2f}"
+                # Fase 0.2: flag visible por fila cuando el selector cayó
+                # a heurística de fallback en este tick.
+                fb_prefix = ""
+                if h.get("_llm_fallback"):
+                    fb_prefix = (
+                        '<span style="color:#ff8f40;font-weight:600" '
+                        'title="LLM remoto no respondió — heurística de fallback">'
+                        '⚠ fallback</span> │ '
+                    )
                 st.markdown(
-                    f'<div class="log-entry">t={h.get("_paso","?"):3} │ '
+                    f'<div class="log-entry">{fb_prefix}t={h.get("_paso","?"):3} │ '
                     f'<b>{h.get("_regla_nombre","?")}</b> │ '
                     f'op={h.get("opinion",0):+.3f} │ {h.get("_razon","")}{extras}</div>',
                     unsafe_allow_html=True,
