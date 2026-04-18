@@ -17,6 +17,7 @@ from social_architect import buscar_estrategia_inversa
 from visualizations import generate_social_network_viz
 from simulator import (
     DEFAULT_CONFIG,
+    DEFAULT_PAYOFF_MATRIX,
     DESCRIPCIONES_REGLAS,
     NOMBRES_REGLAS,
     PROVEEDORES,
@@ -247,9 +248,39 @@ with st.sidebar:
     )
 
     homofilia_tasa = st.slider(
-        t("homofily_rate", lang),
+        t("homophily_rate", lang),
         0.0, 0.2, 0.05, 0.01
     )
+
+    st.markdown("---")
+    st.markdown(t("egt_section", lang))
+
+    activar_replicador = st.toggle(t("activate_replicator", lang), value=False)
+    payoff_matrix_cfg: list = list(DEFAULT_PAYOFF_MATRIX)
+    dt_cfg: float = 0.1
+    if activar_replicador:
+        payoff_raw = st.text_area(
+            t("payoff_matrix", lang),
+            value=json.dumps(DEFAULT_PAYOFF_MATRIX),
+            height=80,
+            help="Introduce una matriz 2×2 en formato JSON. Ejemplo: [[1,0],[0,1]]",
+        )
+        try:
+            parsed = json.loads(payoff_raw)
+            if (
+                isinstance(parsed, list)
+                and len(parsed) == 2
+                and all(isinstance(row, list) and len(row) == 2 for row in parsed)
+            ):
+                payoff_matrix_cfg = parsed
+            else:
+                st.error("La matriz debe ser 2×2. Usando identidad como fallback.")
+        except json.JSONDecodeError:
+            st.error("JSON inválido para la matriz de pagos. Usando identidad como fallback.")
+        dt_cfg = st.slider(
+            t("dt_step", lang),
+            min_value=0.01, max_value=1.0, value=0.1, step=0.01,
+        )
 
     st.markdown("---")
     st.markdown(t("simulation_settings", lang))
@@ -292,6 +323,10 @@ with tab1:
             "hk_epsilon":         hk_epsilon,
             "homofilia_tasa":     homofilia_tasa,
         }
+        if activar_replicador:
+            config_run["modelo_matematico"] = "Replicator"
+            config_run["payoff_matrix"]     = payoff_matrix_cfg
+            config_run["dt"]                = dt_cfg
 
         estado_inicial = {
             "opinion":          opinion0,
@@ -333,6 +368,21 @@ with tab1:
             f'rango {nombre_rango.split("—")[0].strip()} · neutro={neutro}</span>'
         )
         st.markdown(" ".join(badges), unsafe_allow_html=True)
+
+        # ── EWS / TDA INDICATORS ───────────────────────────────
+        ews_final = historial[-1].get("ews", {})
+        ews_flags_final = ews_final.get("flags", {})
+        if any(ews_flags_final.values()):
+            st.warning(
+                t("ews_warning", lang,
+                  hv=ews_flags_final.get("high_variance", False),
+                  ha=ews_flags_final.get("high_autocorr", False),
+                  hs=ews_flags_final.get("high_skewness", False)),
+            )
+
+        tda_final = historial[-1].get("tda_change", False)
+        if tda_final:
+            st.error(t("tda_change", lang))
 
         # ── MÉTRICAS ───────────────────────────────────────────
         st.markdown(t("results", lang))
@@ -399,7 +449,7 @@ with tab1:
             )
             
             st.markdown("### Topología de Red Social (Física)")
-            fig_net = generate_social_network_viz(opiniones[-1], estado_final["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
+            fig_net = generate_social_network_viz(opiniones[-1], historial[-1]["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
             st.plotly_chart(fig_net, use_container_width=True)
             
             share_url = "https://github.com/Adlgr87/BeyondSight"
@@ -599,6 +649,10 @@ with tab2:
                 # Pasar tamaño del grafo para el cálculo de proporciones target_nodes
                 "_n_nodos": grafo_org.number_of_nodes() if grafo_org else 20,
             }
+            if activar_replicador:
+                config_run["modelo_matematico"] = "Replicator"
+                config_run["payoff_matrix"]     = payoff_matrix_cfg
+                config_run["dt"]                = dt_cfg
             estado_inicial = {
                 "opinion": opinion0,
                 "propaganda": propaganda,
@@ -663,7 +717,7 @@ with tab2:
                 submit = st.form_submit_button("🔓 Desbloquear Reporte")
                 if submit and email:
                     with open("leads.csv", "a") as f:
-                        f.write(email + "\\n")
+                        f.write(email + "\n")
                     st.session_state["lead_captured"] = True
                     st.rerun()
         else:
@@ -707,14 +761,14 @@ with tab2:
             st.json(estrategia_display)
 
             report_text = (
-                f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\\n"
-                f"Modo: {modo_inv.upper()}\\n"
-                f"Objetivo: {st.session_state['objetivo_inverso']}\\n\\n"
-                f"{data_inv['narrativa']}\\n\\n"
-                "MATRIZ:\\n" + json.dumps(data_inv["estrategia"], indent=2) + "\\n\\n"
-                + "-" * 50 + "\\n"
-                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\\n"
-                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\\n"
+                f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\n"
+                f"Modo: {modo_inv.upper()}\n"
+                f"Objetivo: {st.session_state['objetivo_inverso']}\n\n"
+                f"{data_inv['narrativa']}\n\n"
+                "MATRIZ:\n" + json.dumps(data_inv["estrategia"], indent=2) + "\n\n"
+                + "-" * 50 + "\n"
+                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\n"
+                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\n"
                 + "-" * 50
             )
             st.download_button(
