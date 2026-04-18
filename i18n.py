@@ -116,7 +116,7 @@ STRINGS = {
         "group_identity": "Intensidad identidad grupal",
         "advanced_mechanisms": "#### 🔬 Mecanismos avanzados",
         "confirmation_bias": "Sesgo de confirmación",
-        "activate_narrative_b": "Activar normativa competidora (B)",
+        "activate_narrative_b": "Activar narrativa competidora (B)",
         "narrativa_b_intensity": "Intensidad narrativa B",
         "hk_epsilon": "Radio de confianza HK (ε)",
         "homophily_rate": "Tasa de homofilia",

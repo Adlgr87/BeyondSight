@@ -39,6 +39,7 @@ from typing import Any
 import networkx as nx
 import numpy as np
 import requests
+from scipy.special import erf
 
 # ------------------------------------------------------------
 # LOGGING
@@ -524,7 +525,6 @@ def regla_umbral_heterogeneo(estado: dict, params: dict, cfg: dict) -> dict:
 
     # Fracción de la población que ya superó su umbral personal
     # (modelado con CDF de la normal)
-    from scipy.special import erf
     fraccion_adoptantes = 0.5 * (1 + erf((opinion - neutro - media + 0.5) / (std * np.sqrt(2))))
     fraccion_adoptantes = float(np.clip(fraccion_adoptantes, 0.0, 1.0))
 
@@ -740,17 +740,17 @@ def _llamar_openai_compatible(prompt: str, base_url: str, api_key: str,
             json={
                 "model": modelo,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": cfg["llm_temperature"],
+                "temperature": cfg.get("llm_temperature", DEFAULT_CONFIG["llm_temperature"]),
                 "max_tokens": 300,
             },
-            timeout=cfg["llm_timeout"],
+            timeout=cfg.get("llm_timeout", DEFAULT_CONFIG["llm_timeout"]),
         )
         resp.raise_for_status()
         return _extraer_json(resp.json()["choices"][0]["message"]["content"])
     except requests.exceptions.ConnectionError:
         log.error(f"No se pudo conectar a {base_url}.")
     except requests.exceptions.Timeout:
-        log.warning(f"Timeout ({cfg['llm_timeout']}s) en {base_url}.")
+        log.warning(f"Timeout ({cfg.get('llm_timeout', DEFAULT_CONFIG['llm_timeout'])}s) en {base_url}.")
     except (KeyError, IndexError) as e:
         log.warning(f"Error parseando respuesta: {e}")
     return None
