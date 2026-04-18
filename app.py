@@ -4,6 +4,7 @@ Simulador híbrido con soporte completo de modelos extendidos
 """
 
 import json
+import logging
 import os
 from collections import Counter
 
@@ -30,6 +31,40 @@ from simulator import (
 
 # Load environment variables from .env
 load_dotenv()
+
+# ------------------------------------------------------------
+# MANEJO SEGURO DE ERRORES (Fase 0.3)
+# ------------------------------------------------------------
+# Logger propio — la traza completa va solo al fichero/stderr.
+_app_log = logging.getLogger("beyondsight.ui")
+if not _app_log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    _app_log.addHandler(_h)
+    _app_log.setLevel(logging.INFO)
+
+
+def _mostrar_error_seguro(e: Exception, contexto: str) -> None:
+    """
+    Muestra un error genérico al usuario sin filtrar el contenido de la
+    excepción a la UI. Stack trace y ``str(e)`` quedan solo en el log
+    (stderr / archivo), nunca en pantalla.
+
+    Motivación: ``str(e)`` en proveedores HTTP o parseos JSON suele
+    incluir rutas internas, API keys truncadas, URLs con query params
+    sensibles, o fragmentos de payload. ``st.error(f"...: {e}")`` filtra
+    todo eso a cualquier usuario con acceso a la UI.
+
+    Args:
+        e: Excepción capturada.
+        contexto: Etiqueta humana del subsistema que falló
+                  (p.ej. "carga de CSV", "llamada a LLM").
+    """
+    _app_log.exception("Error en %s: %s", contexto, e)
+    st.error(
+        f"⚠️ Error en {contexto}: {type(e).__name__}. "
+        f"Revisa los logs del servidor para más detalles."
+    )
 
 # ------------------------------------------------------------
 # PÁGINA
@@ -597,7 +632,7 @@ with tab2:
                     else:
                         st.error("El CSV necesita columnas 'source' y 'target'.")
                 except Exception as e:
-                    st.error(f"Error al cargar el CSV: {e}")
+                    _mostrar_error_seguro(e, "carga de CSV de la red organizacional")
 
         with metrics_col:
             if grafo_org is not None:
