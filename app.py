@@ -17,6 +17,7 @@ from social_architect import buscar_estrategia_inversa
 from visualizations import generate_social_network_viz
 from simulator import (
     DEFAULT_CONFIG,
+    DEFAULT_PAYOFF_MATRIX,
     DESCRIPCIONES_REGLAS,
     NOMBRES_REGLAS,
     PROVEEDORES,
@@ -255,12 +256,12 @@ with st.sidebar:
     st.markdown(t("egt_section", lang))
 
     activar_replicador = st.toggle(t("activate_replicator", lang), value=False)
-    payoff_matrix_cfg: list = [[1.0, 0.0], [0.0, 1.0]]
+    payoff_matrix_cfg: list = list(DEFAULT_PAYOFF_MATRIX)
     dt_cfg: float = 0.1
     if activar_replicador:
         payoff_raw = st.text_area(
             t("payoff_matrix", lang),
-            value="[[1.0, 0.0], [0.0, 1.0]]",
+            value=json.dumps(DEFAULT_PAYOFF_MATRIX),
             height=80,
             help="Introduce una matriz 2×2 en formato JSON. Ejemplo: [[1,0],[0,1]]",
         )

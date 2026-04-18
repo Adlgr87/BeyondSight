@@ -167,6 +167,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "homofilia_tasa": 0.05,
 }
 
+# Default 2×2 payoff matrix for the Replicator (EGT) rule.
+# Represents a symmetric coordination game where strategy A slightly
+# dominates.  Override via cfg["payoff_matrix"] at runtime.
+DEFAULT_PAYOFF_MATRIX: list[list[float]] = [[1.0, 0.0], [0.0, 1.0]]
+
 # Rangos válidos de parámetros del LLM
 _RANGOS_PARAMS: dict[str, dict[str, tuple]] = {
     "lineal":               {"a": (0.5, 0.9), "b": (0.1, 0.5)},
@@ -738,7 +743,7 @@ def regla_replicador(estado: dict, params: dict, cfg: dict) -> dict:
 
     raw_payoff = params.get(
         "payoff_matrix",
-        cfg.get("payoff_matrix", [[1.0, 0.0], [0.0, 1.0]]),
+        cfg.get("payoff_matrix", DEFAULT_PAYOFF_MATRIX),
     )
     payoff_matrix = np.array(raw_payoff, dtype=float)
     if payoff_matrix.shape != (2, 2):
@@ -1083,8 +1088,7 @@ def llamar_llm(estado: dict, escenario: str,
         log.warning(f"Regla inválida ({regla_id}) → fallback.")
         return {"regla": 0, "params": {}, "razon": "fallback"}
 
-    params_raw = data.get("params", {})
-    return {"regla": regla_id, "params": params_raw, "razon": data.get("razon", "")}
+    return {"regla": regla_id, "params": data.get("params", {}), "razon": data.get("razon", "")}
 
 
 def llamar_llm_heuristico(estado: dict, escenario: str,
@@ -1240,7 +1244,7 @@ def simular(
         # EGT Replicator forced mode: bypass LLM and lock to rule 9
         if cfg.get("modelo_matematico") == "Replicator":
             payoff = np.array(
-                cfg.get("payoff_matrix", [[1.0, 0.0], [0.0, 1.0]]),
+                cfg.get("payoff_matrix", DEFAULT_PAYOFF_MATRIX),
                 dtype=float,
             )
             dt = float(cfg.get("dt", 0.1))
