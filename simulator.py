@@ -32,14 +32,23 @@ Autor: BeyondSight Research
 
 import json
 import logging
-from collections import Counter
+from collections import Counter, deque
 from pathlib import Path
 from typing import Any
 
 import networkx as nx
 import numpy as np
 import requests
+from scipy import stats
+from scipy.integrate import solve_ivp
 from scipy.special import erf
+
+try:
+    from ripser import ripser as ripser_compute
+    from persim import wasserstein as wasserstein_dist
+    TDA_AVAILABLE = True
+except ImportError:
+    TDA_AVAILABLE = False
 
 # ------------------------------------------------------------
 # LOGGING
@@ -169,7 +178,11 @@ _RANGOS_PARAMS: dict[str, dict[str, tuple]] = {
     "contagio_competitivo": {"competencia": (0.2, 0.7)},
     "umbral_heterogeneo":   {"media": (0.3, 0.7), "std": (0.05, 0.25)},
     "homofilia":            {"tasa": (0.02, 0.15)},
+    "replicador":           {"dt": (0.01, 1.0)},
 }
+
+# Sliding-window size used by EWS metrics and TDA detection
+HISTORY_BUFFER_SIZE: int = 10
 
 
 # ============================================================
@@ -589,6 +602,235 @@ def regla_homofilia(estado: dict, params: dict, cfg: dict) -> dict:
 
 
 # ============================================================
+# TASK 1 — EWS / CRITICAL SLOWING DOWN (CSD)
+# Early Warning Signals based on variance, lag-1 autocorrelation,
+# and skewness computed over a sliding opinion window.
+# References: Scheffer et al. (2009), Dakos et al. (2012).
+# ============================================================
+
+def calculate_ews_metrics(window_data: list) -> dict:
+    """
+    Calculates Early Warning Signal metrics over a sliding window.
+
+    Accepts a list of scalar floats (one opinion per time step) and
+    returns per-variable arrays for variance, lag-1 autocorrelation,
+    and skewness. The scalar time series is reshaped to (T, 1) so
+    the return dict always contains 1-D arrays of length 1.
+
+    Args:
+        window_data: List of scalar opinion values, length == HISTORY_BUFFER_SIZE.
+
+    Returns:
+        Dict with keys "variance", "autocorr", "skewness", each a np.ndarray
+        of shape (n_vars,).
+    """
+    data_array = np.array(window_data, dtype=float)
+    if data_array.ndim == 1:
+        data_array = data_array.reshape(-1, 1)  # shape: (T, n_vars)
+
+    variance = np.var(data_array, axis=0)
+
+    n_vars = data_array.shape[1]
+    autocorr = np.zeros(n_vars)
+    for i in range(n_vars):
+        if data_array.shape[0] > 1:
+            cc = np.corrcoef(data_array[:-1, i], data_array[1:, i])
+            val = cc[0, 1]
+            autocorr[i] = val if not np.isnan(val) else 0.0
+
+    skewness = stats.skew(data_array, axis=0)
+    return {"variance": variance, "autocorr": autocorr, "skewness": skewness}
+
+
+def check_ews_signals(metrics: dict, thresholds: dict) -> dict:
+    """
+    Checks computed EWS metrics against configurable thresholds.
+
+    Args:
+        metrics: Output of calculate_ews_metrics.
+        thresholds: Dict with optional keys "mean_variance_threshold"
+                    (default 0.1), "mean_autocorr_threshold" (default 0.5),
+                    "mean_skewness_threshold" (default 0.5).
+
+    Returns:
+        Dict with bool flags "high_variance", "high_autocorr", "high_skewness".
+    """
+    return {
+        "high_variance": bool(
+            np.mean(metrics["variance"]) > thresholds.get("mean_variance_threshold", 0.1)
+        ),
+        "high_autocorr": bool(
+            np.mean(metrics["autocorr"]) > thresholds.get("mean_autocorr_threshold", 0.5)
+        ),
+        "high_skewness": bool(
+            np.mean(np.abs(metrics["skewness"])) > thresholds.get("mean_skewness_threshold", 0.5)
+        ),
+    }
+
+
+# ============================================================
+# TASK 2 — REPLICATOR EQUATION (EGT)
+# Two-strategy evolutionary game theory model.
+# Frequencies evolve according to relative payoff.
+# Reference: Taylor & Jonker (1978), Weibull (1995).
+# ============================================================
+
+def apply_replicator_equation(
+    population_states: np.ndarray,
+    payoff_matrix: np.ndarray,
+    dt: float,
+) -> np.ndarray:
+    """
+    Integrates one step of the replicator ODE using RK45.
+
+    Args:
+        population_states: 1-D array of strategy frequencies summing to 1.
+        payoff_matrix: Square payoff matrix (n_strategies × n_strategies).
+        dt: Integration time span [0, dt].
+
+    Returns:
+        Updated normalised frequency array after one step.
+    """
+    pop = np.array(population_states, dtype=float)
+    total = np.sum(pop)
+    if total == 0.0:
+        return pop
+    pop = pop / total
+
+    def replicator_rhs(t: float, x: np.ndarray) -> np.ndarray:
+        x = np.clip(x, 0.0, 1.0)
+        s = np.sum(x)
+        if s > 0.0:
+            x = x / s
+        f = payoff_matrix @ x
+        f_avg = x @ f
+        return x * (f - f_avg)
+
+    sol = solve_ivp(replicator_rhs, [0.0, dt], pop, method="RK45", dense_output=False)
+    new_pop = sol.y[:, -1]
+    new_pop = np.clip(new_pop, 0.0, 1.0)
+    total_new = np.sum(new_pop)
+    return new_pop / total_new if total_new > 0.0 else pop
+
+
+def regla_replicador(estado: dict, params: dict, cfg: dict) -> dict:
+    """
+    Replicator Equation (EGT) — two-strategy evolutionary game theory.
+
+    Models the evolutionary pressure between two group alignments:
+      Strategy 0 → align with group A (opinion_grupo_a)
+      Strategy 1 → align with group B (opinion_grupo_b)
+
+    pertenencia_grupo tracks the frequency of Strategy 0.  After
+    integrating the replicator ODE, opinion shifts to the payoff-
+    weighted group average.
+
+    Args:
+        estado: Current state.
+        params: Rule parameters (payoff_matrix, dt).
+        cfg: Global configuration.
+
+    Returns:
+        Updated state with new opinion and pertenencia_grupo.
+    """
+    pertenencia = estado.get("pertenencia_grupo", 0.6)
+    pop = np.array([pertenencia, 1.0 - pertenencia], dtype=float)
+
+    raw_payoff = params.get(
+        "payoff_matrix",
+        cfg.get("payoff_matrix", [[1.0, 0.0], [0.0, 1.0]]),
+    )
+    payoff_matrix = np.array(raw_payoff, dtype=float)
+    if payoff_matrix.shape != (2, 2):
+        payoff_matrix = np.eye(2)
+
+    dt = float(params.get("dt", cfg.get("dt", 0.1)))
+    updated = apply_replicator_equation(pop, payoff_matrix, dt)
+
+    nuevo_perten = float(np.clip(updated[0], 0.1, 0.9))
+    op_a = estado.get("opinion_grupo_a", _get_rango(cfg)["ejemplo_apoyo"])
+    op_b = estado.get("opinion_grupo_b", _get_rango(cfg)["ejemplo_rechazo"])
+
+    nuevo = estado.copy()
+    nuevo["pertenencia_grupo"] = nuevo_perten
+    nuevo["opinion"] = _clip(
+        nuevo_perten * op_a + (1.0 - nuevo_perten) * op_b,
+        cfg,
+    )
+    return nuevo
+
+
+# ============================================================
+# TASK 3 — TDA / PERSISTENT HOMOLOGY (EWS advanced)
+# Detects topological changes in the opinion time series via
+# delay-embedding and Wasserstein distance between persistence
+# diagrams.  Only activated when ripser + persim are installed.
+# Reference: Carlsson (2009), Perea & Harer (2015).
+# ============================================================
+
+def detect_topological_change(
+    time_series: np.ndarray,
+    prev_diagram: "np.ndarray | None",
+    embedding_dim: int = 2,
+    tau: int = 1,
+    wasserstein_threshold: float = 0.3,
+) -> "tuple[bool, np.ndarray | None]":
+    """
+    Detects significant topological changes via Takens-embedding + PH.
+
+    Embeds the scalar time series in R^embedding_dim using a lag of tau,
+    computes the H1 persistence diagram via Vietoris-Rips filtration, and
+    returns True if the Wasserstein distance to the previous diagram
+    exceeds wasserstein_threshold.
+
+    Args:
+        time_series: 1-D numpy array of opinion values.
+        prev_diagram: H1 persistence diagram from the previous call, or None.
+        embedding_dim: Takens embedding dimension (default 2).
+        tau: Delay parameter for Takens embedding (default 1).
+        wasserstein_threshold: Distance threshold for declaring a change.
+
+    Returns:
+        (change_detected: bool, current_h1_diagram: np.ndarray | None)
+    """
+    if not TDA_AVAILABLE:
+        return False, prev_diagram
+
+    min_len = embedding_dim * tau + 1
+    if len(time_series) < min_len:
+        return False, prev_diagram
+
+    n = len(time_series) - (embedding_dim - 1) * tau
+    embedded = np.array(
+        [time_series[i: i + embedding_dim * tau: tau] for i in range(n)],
+        dtype=float,
+    )
+
+    diagrams = ripser_compute(embedded, maxdim=1)["dgms"]
+    h1: np.ndarray = diagrams[1] if len(diagrams) > 1 else np.empty((0, 2))
+
+    if prev_diagram is None:
+        return False, h1
+
+    finite_prev = (
+        prev_diagram[np.isfinite(prev_diagram[:, 1])]
+        if len(prev_diagram) > 0
+        else np.empty((0, 2))
+    )
+    finite_curr = (
+        h1[np.isfinite(h1[:, 1])]
+        if len(h1) > 0
+        else np.empty((0, 2))
+    )
+
+    if len(finite_prev) == 0 and len(finite_curr) == 0:
+        return False, h1
+
+    dist = wasserstein_dist(finite_curr, finite_prev)
+    return bool(dist > wasserstein_threshold), h1
+
+
+# ============================================================
 # REGISTRO DE REGLAS
 # ============================================================
 
@@ -603,6 +845,7 @@ REGLAS: dict[str, dict[int, Any]] = {
         6: regla_contagio_competitivo,
         7: regla_umbral_heterogeneo,
         8: regla_homofilia,
+        9: regla_replicador,
     }
 }
 
@@ -616,6 +859,7 @@ NOMBRES_REGLAS = {
     6: "contagio_competitivo",
     7: "umbral_heterogeneo",
     8: "homofilia",
+    9: "replicador",
 }
 
 # Descripción de cada regla para la UI
@@ -629,6 +873,7 @@ DESCRIPCIONES_REGLAS = {
     6: "Dos narrativas compiten simultáneamente",
     7: "Distribución de umbrales — cascadas sociales (Granovetter)",
     8: "Red co-evolutiva — homofilia dinámica",
+    9: "Ecuación replicadora — dinámica evolutiva de estrategias (EGT)",
 }
 
 
@@ -687,9 +932,10 @@ Decision Examples:
 - two active and tense narratives → contagio_competitivo
 - strong trend already started → polarizacion
 - social cascade effect desired → umbral_heterogeneo
-- groups tend to cluster by similarity → homofilia"""
+- groups tend to cluster by similarity → homofilia
+- evolutionary pressure between group strategies → replicador"""
 
-    return f"""You are a rule selector for a social dynamics simulation.
+    base_prompt = f"""You are a rule selector for a social dynamics simulation.
 Scenario: {escenario} | Range: {rango_desc}
 
 State:
@@ -709,11 +955,24 @@ Available Rules:
 6: contagio_competitivo — two narratives compete simultaneously
 7: umbral_heterogeneo   — social cascades (Granovetter)
 8: homofilia            — co-evolutionary network, groups by similarity
+9: replicador           — evolutionary game theory, strategy frequencies
 
 Respond ONLY with JSON:
-{{"regla": <0-8>, "params": {{...}}, "razon": "<explanation>"}}
+{{"regla": <0-9>, "params": {{...}}, "razon": "<explanation>"}}
 Fallback: {{"regla": 0, "params": {{}}, "razon": "fallback"}}
 """
+
+    ews_flags = estado.get("_ews_flags", {})
+    ews_context = ""
+    if ews_flags:
+        ews_context = (
+            f"\n[EWS] high_variance={ews_flags.get('high_variance', False)}, "
+            f"high_autocorr={ews_flags.get('high_autocorr', False)}, "
+            f"high_skewness={ews_flags.get('high_skewness', False)}. "
+            "These indicate proximity to a bifurcation tipping point "
+            "(B-tipping via Critical Slowing Down)."
+        )
+    return base_prompt + ews_context
 
 
 # ============================================================
@@ -824,7 +1083,8 @@ def llamar_llm(estado: dict, escenario: str,
         log.warning(f"Regla inválida ({regla_id}) → fallback.")
         return {"regla": 0, "params": {}, "razon": "fallback"}
 
-    return {"regla": regla_id, "params": data.get("params", {}), "razon": data.get("razon", "")}
+    params_raw = data.get("params", {})
+    return {"regla": regla_id, "params": params_raw, "razon": data.get("razon", "")}
 
 
 def llamar_llm_heuristico(estado: dict, escenario: str,
@@ -971,7 +1231,20 @@ def simular(
     params_actuales: dict = {}
     razon_actual   = "inicial"
 
+    # EWS: sliding window of scalar opinion values
+    opinion_history: deque = deque(maxlen=HISTORY_BUFFER_SIZE)
+    # Mutable runtime state for non-serialisable objects (e.g. TDA diagram)
+    cfg_runtime: dict = {}
+
     def _seleccionar(est, hist):
+        # EGT Replicator forced mode: bypass LLM and lock to rule 9
+        if cfg.get("modelo_matematico") == "Replicator":
+            payoff = np.array(
+                cfg.get("payoff_matrix", [[1.0, 0.0], [0.0, 1.0]]),
+                dtype=float,
+            )
+            dt = float(cfg.get("dt", 0.1))
+            return 9, {"payoff_matrix": payoff.tolist(), "dt": dt}, "replicador: EGT mode active"
         ventana = hist[-cfg["ventana_historial_llm"]:]
         dec     = llamar_llm(est, escenario, ventana, cfg)
         r_id    = dec["regla"]
@@ -1033,6 +1306,28 @@ def simular(
 
         estado = nuevo
         historial.append(estado.copy())
+
+        # ── EWS: collect opinion, compute CSD metrics ─────────────────
+        opinion_history.append(estado["opinion"])
+        if len(opinion_history) == HISTORY_BUFFER_SIZE:
+            ews_metrics = calculate_ews_metrics(list(opinion_history))
+            ews_flags   = check_ews_signals(ews_metrics, cfg.get("ews_thresholds", {}))
+            estado["_ews_flags"] = ews_flags
+            historial[-1]["ews"] = {
+                "metrics": {k: v.tolist() for k, v in ews_metrics.items()},
+                "flags":   ews_flags,
+            }
+
+        # ── TDA: topological change detection every 5 steps ───────────
+        if TDA_AVAILABLE and paso % 5 == 0 and len(opinion_history) >= HISTORY_BUFFER_SIZE:
+            mean_opinions = np.array(list(opinion_history), dtype=float)
+            tda_change, prev_diagram = detect_topological_change(
+                mean_opinions,
+                prev_diagram=cfg_runtime.get("prev_tda_diagram"),
+                wasserstein_threshold=cfg.get("tda_wasserstein_threshold", 0.3),
+            )
+            cfg_runtime["prev_tda_diagram"] = prev_diagram
+            historial[-1]["tda_change"] = tda_change
 
     if verbose:
         log.info(
@@ -1294,8 +1589,6 @@ def run_with_schedule(
 # EJECUCIÓN DIRECTA
 # ============================================================
 if __name__ == "__main__":
-    from scipy.special import erf  # verificar que scipy está disponible
-
     for nombre_rango in RANGOS_DISPONIBLES:
         r = RANGOS_DISPONIBLES[nombre_rango]
         print(f"\n{'='*65}")

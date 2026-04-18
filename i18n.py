@@ -32,6 +32,13 @@ STRINGS = {
         "narrativa_b_intensity": "Narrative B Intensity",
         "hk_epsilon": "HK Confidence Radius (ε)",
         "homophily_rate": "Homophily Rate",
+        "egt_section": "#### ⚗️ EGT Replicator Model",
+        "activate_replicator": "Activate Replicator (EGT)",
+        "payoff_matrix": "Payoff Matrix (JSON 2D array)",
+        "dt_step": "dt (integration step)",
+        "ews_section": "#### 🚨 Early Warning Signals",
+        "ews_warning": "⚠️ EWS: high_variance={hv}, high_autocorr={ha}, high_skewness={hs}",
+        "tda_change": "🔺 Topological change detected (TDA/PH)",
         "simulation_settings": "#### ⚙️ Simulation Settings",
         "time_steps": "Time Steps",
         "llm_every_n": "LLM every N steps",
@@ -77,6 +84,7 @@ STRINGS = {
 | 6 | **Competitive Contagion** | Beutel et al. (2012) | Two active narratives |
 | 7 | **Heterogeneous Threshold** | Granovetter (1978) | Social cascades |
 | 8 | **Homofily** | Axelrod (1997) | Groups converge by similarity |
+| 9 | **Replicator** | Taylor & Jonker (1978) | Evolutionary pressure between group strategies |
 
 **Cross-cutting Mechanisms:**
 - **Confirmation Bias** — opposing propaganda arrives attenuated based on current position.
@@ -120,6 +128,13 @@ STRINGS = {
         "narrativa_b_intensity": "Intensidad narrativa B",
         "hk_epsilon": "Radio de confianza HK (ε)",
         "homophily_rate": "Tasa de homofilia",
+        "egt_section": "#### ⚗️ Modelo Replicador (EGT)",
+        "activate_replicator": "Activar Replicador (EGT)",
+        "payoff_matrix": "Matriz de pagos (JSON 2D)",
+        "dt_step": "dt (paso de integración)",
+        "ews_section": "#### 🚨 Señales de Alerta Temprana",
+        "ews_warning": "⚠️ EWS: varianza_alta={hv}, autocorr_alta={ha}, sesgo_alto={hs}",
+        "tda_change": "🔺 Cambio topológico detectado (TDA/PH)",
         "simulation_settings": "#### ⚙️ Simulación",
         "time_steps": "Pasos temporales",
         "llm_every_n": "LLM cada N pasos",
@@ -165,6 +180,7 @@ STRINGS = {
 | 6 | **Contagio competitivo** | Beutel et al. (2012) | Dos narrativas activas |
 | 7 | **Umbral heterogéneo** | Granovetter (1978) | Cascadas sociales |
 | 8 | **Homofilia** | Axelrod (1997) | Grupos convergen por similitud |
+| 9 | **Replicador** | Taylor & Jonker (1978) | Presión evolutiva entre estrategias de grupo |
 
 **Mecanismos transversales:**
 - **Sesgo de confirmación** — propaganda contraria llega atenuada según la posición actual
