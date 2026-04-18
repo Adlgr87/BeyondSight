@@ -34,7 +34,7 @@ import json
 import logging
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 import networkx as nx
 import numpy as np
@@ -791,12 +791,14 @@ def llamar_llm(estado: dict, escenario: str,
         cfg: Global configuration.
 
     Returns:
-        A dictionary with "regla", "params", and "razon".
+        A dictionary with "regla", "params", "razon", and "_llm_fallback" flag.
     """
     proveedor = cfg.get("proveedor", "heurístico")
 
     if proveedor == "heurístico":
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec.setdefault("_llm_fallback", False)
+        return dec
 
     prompt = _construir_prompt(estado, escenario, historial_reciente, cfg)
     data   = None
@@ -809,22 +811,33 @@ def llamar_llm(estado: dict, escenario: str,
         modelo  = cfg.get("modelo", "").strip() or info["modelos_sugeridos"][0]
         if not api_key:
             log.error(f"'{proveedor}' requiere API key. → heurístico.")
-            return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+            dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+            dec["_llm_fallback"] = True
+            return dec
         data = _llamar_openai_compatible(prompt, info["base_url"], api_key, modelo, cfg)
     else:
         log.error(f"Proveedor desconocido: '{proveedor}'. → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec["_llm_fallback"] = True
+        return dec
 
     if data is None:
         log.warning("LLM sin respuesta → heurístico.")
-        return llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec = llamar_llm_heuristico(estado, escenario, historial_reciente, cfg)
+        dec["_llm_fallback"] = True
+        return dec
 
     regla_id = int(data.get("regla", 0))
     if regla_id not in REGLAS.get(escenario, {}):
         log.warning(f"Regla inválida ({regla_id}) → fallback.")
-        return {"regla": 0, "params": {}, "razon": "fallback"}
+        return {"regla": 0, "params": {}, "razon": "fallback", "_llm_fallback": True}
 
-    return {"regla": regla_id, "params": data.get("params", {}), "razon": data.get("razon", "")}
+    return {
+        "regla": regla_id,
+        "params": data.get("params", {}),
+        "razon": data.get("razon", ""),
+        "_llm_fallback": False,
+    }
 
 
 def llamar_llm_heuristico(estado: dict, escenario: str,
@@ -976,9 +989,9 @@ def simular(
         dec     = llamar_llm(est, escenario, ventana, cfg)
         r_id    = dec["regla"]
         p       = _validar_params(NOMBRES_REGLAS[r_id], dec.get("params", {}))
-        return r_id, p, dec.get("razon", "")
+        return r_id, p, dec.get("razon", ""), dec.get("_llm_fallback", False)
 
-    regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+    regla_actual, params_actuales, razon_actual, fallback_actual = _seleccionar(estado, historial)
     if verbose:
         log.info(
             f"t=0 | [{proveedor}] rango={r['min']},{r['max']} "
@@ -988,7 +1001,7 @@ def simular(
     for paso in range(1, pasos + 1):
 
         if paso % cada_n_pasos == 0:
-            regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+            regla_actual, params_actuales, razon_actual, fallback_actual = _seleccionar(estado, historial)
             if verbose:
                 log.info(
                     f"t={paso:3d} | [{proveedor}] {NOMBRES_REGLAS[regla_actual]:22s} "
@@ -1013,6 +1026,10 @@ def simular(
             cfg
         )
 
+        # FASE 0.4 — Fix: usar opinion_prev del propio agente para detectar cambio real
+        opinion_prev_real = estado["opinion"]
+        changed = abs(opinion_final - opinion_prev_real) > 0.01
+
         # Construir nuevo estado
         nuevo = estado.copy()
         # Si la regla actualizó pertenencia_grupo (homofilia), persiste
@@ -1023,13 +1040,17 @@ def simular(
             if k in estado_regla:
                 nuevo[k] = estado_regla[k]
 
-        nuevo["opinion_prev"]  = estado["opinion"]
-        nuevo["opinion"]       = opinion_final
-        nuevo["_paso"]         = paso
-        nuevo["_regla"]        = regla_actual
-        nuevo["_regla_nombre"] = NOMBRES_REGLAS[regla_actual]
-        nuevo["_razon"]        = razon_actual
-        nuevo["_rango"]        = cfg["rango"]
+        nuevo["opinion_prev"]    = opinion_prev_real
+        nuevo["opinion"]         = opinion_final
+        nuevo["_paso"]           = paso
+        nuevo["_regla"]          = regla_actual
+        nuevo["_regla_nombre"]   = NOMBRES_REGLAS[regla_actual]
+        nuevo["_razon"]          = razon_actual
+        nuevo["_rango"]          = cfg["rango"]
+        # FASE 0.2 — propagar flag de fallback LLM al estado
+        nuevo["_llm_fallback"]   = fallback_actual
+        # FASE 0.4 — indicador correcto de cambio de opinión
+        nuevo["_opinion_changed"] = changed
 
         estado = nuevo
         historial.append(estado.copy())
@@ -1041,6 +1062,135 @@ def simular(
             f"(neutro={_neutro(cfg)})"
         )
     return historial
+
+
+# ============================================================
+# FASE 0.1 — STREAMING GENERATOR
+# Emite cada tick individualmente sin acumular historial completo.
+# Usar en app.py con st.empty() + bucle explícito.
+# ============================================================
+
+def iter_simulation_ticks(
+    estado_inicial: dict,
+    escenario: str = "campana",
+    pasos: int = 50,
+    cada_n_pasos: int = 5,
+    config: dict | None = None,
+    verbose: bool = False,
+) -> Generator[dict, None, None]:
+    """
+    Generator version of the simulator. Yields each tick individually
+    without accumulating the full history in memory first.
+
+    This is the preferred method for real-time streaming in the UI.
+    Memory usage is O(ventana_historial_llm) instead of O(pasos).
+
+    Args:
+        estado_inicial: Dictionary with at least "opinion" and "propaganda".
+        escenario: Scenario key in REGLAS.
+        pasos: Number of time steps.
+        cada_n_pasos: Frequency of LLM rule selection updates.
+        config: Override dictionary for DEFAULT_CONFIG.
+        verbose: If true, logs step details.
+
+    Yields:
+        State dictionary for each tick (t=0 first, then t=1..pasos).
+    """
+    cfg         = {**DEFAULT_CONFIG, **(config or {})}
+    r           = _get_rango(cfg)
+    alpha_blend = cfg["alpha_blend"]
+    proveedor   = cfg.get("proveedor", "heurístico")
+    ventana_n   = cfg["ventana_historial_llm"]
+
+    estado = estado_inicial.copy()
+    estado.setdefault("opinion_prev",     estado["opinion"])
+    estado.setdefault("confianza",        0.5)
+    estado.setdefault("opinion_grupo_a",  min(estado["opinion"] + 0.2 * _amplitud(cfg), r["max"]))
+    estado.setdefault("opinion_grupo_b",  max(estado["opinion"] - 0.2 * _amplitud(cfg), r["min"]))
+    estado.setdefault("pertenencia_grupo", 0.6)
+
+    # Rolling window — only keep last ventana_n ticks to avoid O(pasos) memory
+    ventana: list[dict] = [estado.copy()]
+
+    regla_actual    = 0
+    params_actuales: dict = {}
+    razon_actual    = "inicial"
+    fallback_actual = False
+
+    def _seleccionar(est, win):
+        dec  = llamar_llm(est, escenario, win, cfg)
+        r_id = dec["regla"]
+        p    = _validar_params(NOMBRES_REGLAS[r_id], dec.get("params", {}))
+        return r_id, p, dec.get("razon", ""), dec.get("_llm_fallback", False)
+
+    regla_actual, params_actuales, razon_actual, fallback_actual = _seleccionar(estado, ventana)
+
+    if verbose:
+        log.info(
+            f"t=0 | [{proveedor}] rango={r['min']},{r['max']} "
+            f"| {NOMBRES_REGLAS[regla_actual]} | {razon_actual}"
+        )
+
+    # Yield initial state (t=0)
+    yield estado.copy()
+
+    for paso in range(1, pasos + 1):
+
+        if paso % cada_n_pasos == 0:
+            regla_actual, params_actuales, razon_actual, fallback_actual = _seleccionar(estado, ventana)
+            if verbose:
+                log.info(
+                    f"t={paso:3d} | [{proveedor}] {NOMBRES_REGLAS[regla_actual]:22s} "
+                    f"op={estado['opinion']:+.3f} | {razon_actual}"
+                )
+
+        regla_func    = REGLAS[escenario].get(regla_actual, regla_lineal)
+        estado_regla  = regla_func(estado, params_actuales, cfg)
+        opinion_regla = _clip(estado_regla["opinion"], cfg)
+
+        tendencia_base = 0.92 * estado["opinion"] + 0.08 * estado["propaganda"]
+        opinion_blend  = alpha_blend * opinion_regla + (1.0 - alpha_blend) * tendencia_base
+
+        ruido_std     = cfg["ruido_base"] + cfg["ruido_desconfianza"] * (1.0 - estado["confianza"])
+        opinion_final = _clip(
+            opinion_blend
+            + calcular_efecto_grupos(estado, cfg)
+            + np.random.normal(0.0, ruido_std),
+            cfg,
+        )
+
+        # FASE 0.4 — correct change detection using agent's own previous opinion
+        opinion_prev_real = estado["opinion"]
+        changed = abs(opinion_final - opinion_prev_real) > 0.01
+
+        nuevo = estado.copy()
+        if "pertenencia_grupo" in estado_regla:
+            nuevo["pertenencia_grupo"] = estado_regla["pertenencia_grupo"]
+        for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b"):
+            if k in estado_regla:
+                nuevo[k] = estado_regla[k]
+
+        nuevo["opinion_prev"]     = opinion_prev_real
+        nuevo["opinion"]          = opinion_final
+        nuevo["_paso"]            = paso
+        nuevo["_regla"]           = regla_actual
+        nuevo["_regla_nombre"]    = NOMBRES_REGLAS[regla_actual]
+        nuevo["_razon"]           = razon_actual
+        nuevo["_rango"]           = cfg["rango"]
+        nuevo["_llm_fallback"]    = fallback_actual
+        nuevo["_opinion_changed"] = changed
+
+        estado = nuevo
+
+        # Maintain rolling window — O(ventana_n) not O(pasos)
+        ventana.append(estado.copy())
+        if len(ventana) > ventana_n:
+            ventana.pop(0)
+
+        yield estado.copy()
+
+    if verbose:
+        log.info(f"Streaming completo: {pasos} pasos (neutro={_neutro(cfg)})")
 
 
 # ============================================================
@@ -1288,6 +1438,115 @@ def run_with_schedule(
             paso_actual = paso + 1
 
     return historial
+
+
+# ============================================================
+# FASE 1.3 — CACHÉ DE PAYOFF MATRIX (EGT)
+# Pre-computa la matriz de pagos una sola vez; la invalida solo
+# cuando la topología de la red cambia (hash de la matriz W).
+# ============================================================
+
+class EGTPayoffCache:
+    """
+    Caches the EGT (Evolutionary Game Theory) payoff matrix.
+    Recomputes only when the adjacency matrix topology changes.
+
+    Usage:
+        cache = EGTPayoffCache()
+        payoff = cache.get(W, compute_fn)
+
+    Args:
+        None — stateful per-instance cache.
+    """
+
+    def __init__(self) -> None:
+        self._payoff_cache: np.ndarray | None = None
+        self._topology_hash: int = 0
+
+    def get(self, W: np.ndarray, compute_fn) -> np.ndarray:
+        """
+        Returns the cached payoff matrix for adjacency matrix W.
+        Recomputes if topology hash changed.
+
+        Args:
+            W: Adjacency / weight matrix N×N.
+            compute_fn: Callable(W) -> np.ndarray that computes the payoff.
+
+        Returns:
+            Payoff matrix (cached or freshly computed).
+        """
+        h = hash(W.tobytes())
+        if h != self._topology_hash or self._payoff_cache is None:
+            self._payoff_cache = compute_fn(W)
+            self._topology_hash = h
+        return self._payoff_cache
+
+    def invalidate(self) -> None:
+        """Forces recomputation on the next call to get()."""
+        self._payoff_cache = None
+        self._topology_hash = 0
+
+
+# ============================================================
+# FASE 2.3 — MÉTRICA DE FIEDLER (Laplaciano de la Red)
+# El segundo eigenvalor más pequeño de L = D - A.
+# λ₂ → 0 indica fragmentación inminente de la red.
+# λ₂ grande → red altamente cohesiva.
+# Referencia: Fiedler (1973), Chung (1997).
+# ============================================================
+
+def calcular_fiedler(W: np.ndarray) -> float:
+    """
+    Computes the Fiedler value (λ₂) of a network.
+
+    The Fiedler value is the second smallest eigenvalue of the
+    graph Laplacian L = D - A. It is the mathematically correct
+    measure of network cohesion and imminent fragmentation risk.
+
+    - λ₂ ≈ 0 → network on the verge of splitting into disconnected communities.
+    - λ₂ large → highly cohesive / well-connected network.
+
+    This replaces the adjacency matrix eigenvalue (which measures
+    centrality, not resilience) used previously.
+
+    Args:
+        W: Adjacency/weight matrix N×N (symmetric, non-negative).
+
+    Returns:
+        λ₂ as a float. Returns 0.0 for trivial graphs (N < 2).
+    """
+    n = W.shape[0]
+    if n < 2:
+        return 0.0
+
+    # Degree matrix
+    D = np.diag(W.sum(axis=1))
+    # Graph Laplacian
+    L = D - W
+    # eigvalsh is faster than eigvals for symmetric matrices
+    eigenvalues = np.sort(np.linalg.eigvalsh(L))
+    # λ₀ = 0 always (constant vector is eigenvector); λ₁ is Fiedler value
+    return float(eigenvalues[1]) if len(eigenvalues) > 1 else 0.0
+
+
+def alerta_fragmentacion(W: np.ndarray, umbral: float = 0.05) -> dict:
+    """
+    Evaluates whether the network is approaching fragmentation.
+
+    Args:
+        W: Adjacency/weight matrix N×N.
+        umbral: Fiedler threshold below which fragmentation is imminent.
+
+    Returns:
+        Dictionary with "fiedler", "fragmentacion_inminente", and "nivel_riesgo".
+    """
+    fiedler = calcular_fiedler(W)
+    riesgo = "alto" if fiedler < umbral else ("medio" if fiedler < 3 * umbral else "bajo")
+    return {
+        "fiedler": round(fiedler, 6),
+        "fragmentacion_inminente": fiedler < umbral,
+        "nivel_riesgo": riesgo,
+    }
 
 
 # ============================================================

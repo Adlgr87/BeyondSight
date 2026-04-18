@@ -22,6 +22,7 @@ from simulator import (
     PROVEEDORES,
     RANGOS_DISPONIBLES,
     get_graph_metrics,
+    iter_simulation_ticks,
     resumen_historial,
     simular,
     simular_multiples,
@@ -29,6 +30,23 @@ from simulator import (
 
 # Load environment variables from .env
 load_dotenv()
+
+# ------------------------------------------------------------
+# FASE 0.3 — Secure error display (no raw tracebacks in UI)
+# ------------------------------------------------------------
+import logging as _logging
+_log_app = _logging.getLogger("beyondsight.app")
+
+
+def _mostrar_error_seguro(e: Exception, contexto: str = "simulación") -> None:
+    """
+    Shows a sanitised error message in the UI without exposing internal
+    file paths, partial API keys, or provider names from raw tracebacks.
+    Full exception detail is written to the file log only.
+    """
+    msg_limpio = f"Error en {contexto}: {type(e).__name__}"
+    st.error(f"⚠️ {msg_limpio}")
+    _log_app.exception(e)
 
 # ------------------------------------------------------------
 # PÁGINA
@@ -304,21 +322,54 @@ with tab1:
         if activar_narrativa_b:
             estado_inicial["narrativa_b"] = narrativa_b
 
-        with st.spinner(t("simulating", lang)):
-            historial = simular(
+        # ── FASE 0.1 — Streaming real: tick a tick, sin acumular todo en memoria ──
+        historial: list[dict] = []
+        resultado_prob = None
+        try:
+            chart_placeholder = st.empty()
+            prog_placeholder  = st.empty()
+            opiniones_stream: list[float] = []
+
+            for tick in iter_simulation_ticks(
                 estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
                 config=config_run, verbose=False,
-            )
-            resultado_prob = None
-            if modo_prob:
-                resultado_prob = simular_multiples(
-                    estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
-                    config=config_run, n_simulaciones=n_sims,
-                )
+            ):
+                historial.append(tick)
+                opiniones_stream.append(tick["opinion"])
 
-        stats     = resumen_historial(historial, config_run)
-        opiniones = [h["opinion"] for h in historial]
-        delta     = stats["delta_total"]
+                # Actualiza el gráfico en vivo cada 5 ticks para no saturar la UI
+                paso_actual = tick.get("_paso", 0)
+                if paso_actual % 5 == 0 or paso_actual == pasos:
+                    chart_placeholder.line_chart(
+                        pd.DataFrame({"Opinión": opiniones_stream}),
+                    )
+                    prog_placeholder.caption(
+                        f"Simulando… paso {paso_actual}/{pasos}"
+                    )
+
+                # FASE 0.2 — Mostrar aviso cuando el LLM usó fallback
+                if tick.get("_llm_fallback", False):
+                    st.toast(
+                        "⚠️ resultado previo — LLM no disponible, usando heurístico",
+                        icon="⚠️",
+                    )
+
+            prog_placeholder.empty()  # Limpiar indicador de progreso al terminar
+
+            if modo_prob:
+                with st.spinner("Calculando distribución probabilística…"):
+                    resultado_prob = simular_multiples(
+                        estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
+                        config=config_run, n_simulaciones=n_sims,
+                    )
+        except Exception as _sim_exc:
+            _mostrar_error_seguro(_sim_exc, "simulación")
+            st.stop()
+
+        stats      = resumen_historial(historial, config_run)
+        opiniones  = [h["opinion"] for h in historial]
+        delta      = stats["delta_total"]
+        estado_final = historial[-1] if historial else estado_inicial
 
         # ── BADGES de mecanismos activos ───────────────────────
         badges = []
@@ -549,7 +600,7 @@ with tab2:
                     else:
                         st.error("El CSV necesita columnas 'source' y 'target'.")
                 except Exception as e:
-                    st.error(f"Error al cargar el CSV: {e}")
+                    _mostrar_error_seguro(e, "carga de CSV")
 
         with metrics_col:
             if grafo_org is not None:
