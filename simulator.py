@@ -30,6 +30,7 @@ PROVEEDORES LLM:
 Autor: BeyondSight Research
 """
 
+import copy
 import json
 import logging
 from collections import Counter, deque
@@ -188,6 +189,61 @@ _RANGOS_PARAMS: dict[str, dict[str, tuple]] = {
 
 # Sliding-window size used by EWS metrics and TDA detection
 HISTORY_BUFFER_SIZE: int = 10
+
+# ============================================================
+# ALIAS MAP — robust rule name resolution (Bug #4)
+# Maps English / variant names to the canonical Spanish key.
+# ============================================================
+
+ALIAS_MAP: dict[str, str] = {
+    # lineal
+    "lineal": "lineal", "linear": "lineal",
+    # umbral
+    "umbral": "umbral", "threshold": "umbral", "tipping_point": "umbral",
+    # memoria
+    "memoria": "memoria", "memory": "memoria", "degroot": "memoria",
+    "degroot_model": "memoria", "inertia": "memoria",
+    # backlash
+    "backlash": "backlash", "boomerang": "backlash", "boomerang_effect": "backlash",
+    # polarizacion
+    "polarizacion": "polarizacion", "polarization": "polarizacion",
+    "echo_chamber": "polarizacion",
+    # hk
+    "hk": "hk", "hegselmann": "hk", "hegselmann_krause": "hk",
+    "bounded_confidence": "hk", "krause": "hk",
+    # contagio_competitivo
+    "contagio_competitivo": "contagio_competitivo",
+    "contagio": "contagio_competitivo",
+    "competitive_contagion": "contagio_competitivo",
+    "competitive_contagion_model": "contagio_competitivo",
+    # umbral_heterogeneo
+    "umbral_heterogeneo": "umbral_heterogeneo",
+    "granovetter": "umbral_heterogeneo",
+    "heterogeneous_threshold": "umbral_heterogeneo",
+    "cascades": "umbral_heterogeneo",
+    # homofilia
+    "homofilia": "homofilia", "homophily": "homofilia",
+    "co_evolutionary": "homofilia",
+    # replicador
+    "replicador": "replicador", "replicator": "replicador",
+    "egt": "replicador", "replicator_equation": "replicador",
+    "evolutionary_game_theory": "replicador",
+}
+
+
+def _mapear_regla(nombre: str) -> str:
+    """
+    Maps a rule name (including English aliases and variants) to its
+    canonical Spanish key used by NOMBRES_REGLAS and name_to_id.
+
+    Args:
+        nombre: Raw rule name from the LLM or user input.
+
+    Returns:
+        Canonical rule name, or the normalised input if not found.
+    """
+    key = nombre.lower().strip().replace(" ", "_").replace("-", "_")
+    return ALIAS_MAP.get(key, key)
 
 
 # ============================================================
@@ -1086,9 +1142,14 @@ def llamar_llm(estado: dict, escenario: str,
     regla_id = int(data.get("regla", 0))
     if regla_id not in REGLAS.get(escenario, {}):
         log.warning(f"Regla inválida ({regla_id}) → fallback.")
-        return {"regla": 0, "params": {}, "razon": "fallback"}
+        return {"regla": 0, "params": {}, "razon": "fallback", "_source": "llm"}
 
-    return {"regla": regla_id, "params": data.get("params", {}), "razon": data.get("razon", "")}
+    return {
+        "regla": regla_id,
+        "params": data.get("params", {}),
+        "razon": data.get("razon", ""),
+        "_source": "llm",
+    }
 
 
 def llamar_llm_heuristico(estado: dict, escenario: str,
@@ -1125,47 +1186,55 @@ def llamar_llm_heuristico(estado: dict, escenario: str,
     if "narrativa_b" in estado and abs(estado.get("narrativa_b", 0)) > 0.2:
         return {"regla": 6,
                 "params": {"competencia": cfg.get("competencia_peso", 0.4)},
-                "razon": "contagio_competitivo: narrativa B activa y relevante"}
+                "razon": "contagio_competitivo: narrativa B activa y relevante",
+                "_source": "heuristic"}
 
     # Grupos muy distantes → HK (solo escucha a similares)
     if distancia_grupos > 0.6 * amp:
         return {"regla": 5,
                 "params": {"epsilon": cfg.get("hk_epsilon", 0.3)},
-                "razon": f"hk: grupos muy distantes ({distancia_grupos:.2f})"}
+                "razon": f"hk: grupos muy distantes ({distancia_grupos:.2f})",
+                "_source": "heuristic"}
 
     # Rechazo establecido + propaganda → backlash
     if opinion < zona_rechazo and abs(propaganda) > 0.3:
         return {"regla": 3,
                 "params": {"penalizacion": 0.12},
-                "razon": f"backlash: rechazo establecido (op={opinion:.2f})"}
+                "razon": f"backlash: rechazo establecido (op={opinion:.2f})",
+                "_source": "heuristic"}
 
     # Tendencia fuerte ya iniciada → polarización
     if abs(delta) > 0.05 * amp:
         return {"regla": 4,
                 "params": {"fuerza": 0.08},
-                "razon": f"polarizacion: tendencia {'positiva' if delta>0 else 'negativa'} fuerte"}
+                "razon": f"polarizacion: tendencia {'positiva' if delta>0 else 'negativa'} fuerte",
+                "_source": "heuristic"}
 
     # Propaganda intensa + baja confianza → umbral
     if abs(propaganda) > abs(umbral_prop) and confianza < 0.5:
         return {"regla": 1,
                 "params": {"umbral": round(abs(umbral_prop), 2), "incremento": 0.12},
-                "razon": "umbral: propaganda intensa + baja confianza"}
+                "razon": "umbral: propaganda intensa + baja confianza",
+                "_source": "heuristic"}
 
     # Sistema cerca del neutro + grupos similares → homofilia
     if abs(opinion - neutro) < 0.1 * amp and distancia_grupos < 0.4 * amp:
         return {"regla": 8,
                 "params": {"tasa": cfg.get("homofilia_tasa", 0.05)},
-                "razon": "homofilia: sistema cerca del neutro, grupos convergentes"}
+                "razon": "homofilia: sistema cerca del neutro, grupos convergentes",
+                "_source": "heuristic"}
 
     # Sistema estable → memoria
     if abs(delta) < 0.01 * amp:
         return {"regla": 2,
                 "params": {"alpha": 0.75, "beta": 0.18, "gamma": 0.07},
-                "razon": "memoria: sistema estable, inercia dominante"}
+                "razon": "memoria: sistema estable, inercia dominante",
+                "_source": "heuristic"}
 
     return {"regla": 0,
             "params": {"a": 0.72, "b": 0.28},
-            "razon": "lineal: condiciones moderadas"}
+            "razon": "lineal: condiciones moderadas",
+            "_source": "heuristic"}
 
 
 # ============================================================
@@ -1203,6 +1272,7 @@ def simular(
     cada_n_pasos: int = 5,
     config: dict | None = None,
     verbose: bool = True,
+    prev_tda_diagram=None,
 ) -> list[dict]:
     """
     Executes the hybrid simulation with all available rules.
@@ -1214,31 +1284,38 @@ def simular(
         cada_n_pasos: Frequency of LLM rule selection updates.
         config: Override dictionary for DEFAULT_CONFIG.
         verbose: If true, logs step details.
+        prev_tda_diagram: H1 persistence diagram from a previous simulation
+            batch, enabling TDA continuity across multiple runs.
 
     Returns:
-        A list of state dictionaries (including t=0).
+        A list of state dictionaries (including t=0).  When TDA is active,
+        historial[-1]["_tda_diagram"] carries the final persistence diagram
+        so callers can forward it to the next batch run.
     """
     cfg         = {**DEFAULT_CONFIG, **(config or {})}
     r           = _get_rango(cfg)
     alpha_blend = cfg["alpha_blend"]
     proveedor   = cfg.get("proveedor", "heurístico")
 
-    estado = estado_inicial.copy()
+    estado = copy.deepcopy(estado_inicial)
     estado.setdefault("opinion_prev",     estado["opinion"])
     estado.setdefault("confianza",        0.5)
     estado.setdefault("opinion_grupo_a",  min(estado["opinion"] + 0.2 * _amplitud(cfg), r["max"]))
     estado.setdefault("opinion_grupo_b",  max(estado["opinion"] - 0.2 * _amplitud(cfg), r["min"]))
     estado.setdefault("pertenencia_grupo", 0.6)
 
-    historial: list[dict] = [estado.copy()]
+    historial: list[dict] = [copy.deepcopy(estado)]
     regla_actual   = 0
     params_actuales: dict = {}
     razon_actual   = "inicial"
+    source_actual  = "heuristic"
 
     # EWS: sliding window of scalar opinion values
     opinion_history: deque = deque(maxlen=HISTORY_BUFFER_SIZE)
     # Mutable runtime state for non-serialisable objects (e.g. TDA diagram)
-    cfg_runtime: dict = {}
+    cfg_runtime: dict = {"prev_tda_diagram": prev_tda_diagram}
+    # Flag: Replicator (EGT) mode — LLM is bypassed, EWS flags must be isolated
+    _is_replicator_mode = cfg.get("modelo_matematico") == "Replicator"
 
     def _seleccionar(est, hist):
         # EGT Replicator forced mode: bypass LLM and lock to rule 9
@@ -1248,14 +1325,14 @@ def simular(
                 dtype=float,
             )
             dt = float(cfg.get("dt", 0.1))
-            return 9, {"payoff_matrix": payoff.tolist(), "dt": dt}, "replicador: EGT mode active"
+            return 9, {"payoff_matrix": payoff.tolist(), "dt": dt}, "replicador: EGT mode active", "heuristic"
         ventana = hist[-cfg["ventana_historial_llm"]:]
         dec     = llamar_llm(est, escenario, ventana, cfg)
         r_id    = dec["regla"]
         p       = _validar_params(NOMBRES_REGLAS[r_id], dec.get("params", {}))
-        return r_id, p, dec.get("razon", "")
+        return r_id, p, dec.get("razon", ""), dec.get("_source", "heuristic")
 
-    regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+    regla_actual, params_actuales, razon_actual, source_actual = _seleccionar(estado, historial)
     if verbose:
         log.info(
             f"t=0 | [{proveedor}] rango={r['min']},{r['max']} "
@@ -1265,7 +1342,7 @@ def simular(
     for paso in range(1, pasos + 1):
 
         if paso % cada_n_pasos == 0:
-            regla_actual, params_actuales, razon_actual = _seleccionar(estado, historial)
+            regla_actual, params_actuales, razon_actual, source_actual = _seleccionar(estado, historial)
             if verbose:
                 log.info(
                     f"t={paso:3d} | [{proveedor}] {NOMBRES_REGLAS[regla_actual]:22s} "
@@ -1306,17 +1383,23 @@ def simular(
         nuevo["_regla"]        = regla_actual
         nuevo["_regla_nombre"] = NOMBRES_REGLAS[regla_actual]
         nuevo["_razon"]        = razon_actual
+        nuevo["_source"]       = source_actual
         nuevo["_rango"]        = cfg["rango"]
 
         estado = nuevo
-        historial.append(estado.copy())
+        historial.append(copy.deepcopy(estado))
 
         # ── EWS: collect opinion, compute CSD metrics ─────────────────
         opinion_history.append(estado["opinion"])
         if len(opinion_history) == HISTORY_BUFFER_SIZE:
             ews_metrics = calculate_ews_metrics(list(opinion_history))
             ews_flags   = check_ews_signals(ews_metrics, cfg.get("ews_thresholds", {}))
-            estado["_ews_flags"] = ews_flags
+            # Isolation: do not inject EWS flags in Replicator mode to avoid
+            # contaminating the LLM prompt across mode switches (Bug #2).
+            if not _is_replicator_mode:
+                estado["_ews_flags"] = ews_flags
+            else:
+                estado.pop("_ews_flags", None)
             historial[-1]["ews"] = {
                 "metrics": {k: v.tolist() for k, v in ews_metrics.items()},
                 "flags":   ews_flags,
@@ -1332,6 +1415,11 @@ def simular(
             )
             cfg_runtime["prev_tda_diagram"] = prev_diagram
             historial[-1]["tda_change"] = tda_change
+
+    # Persist the final TDA diagram in the last historial entry so that
+    # simular_multiples() can forward it to the next batch run (Bug #1).
+    if cfg_runtime.get("prev_tda_diagram") is not None:
+        historial[-1]["_tda_diagram"] = cfg_runtime["prev_tda_diagram"]
 
     if verbose:
         log.info(
@@ -1373,14 +1461,26 @@ def simular_multiples(
     ruido_ini  = cfg["ruido_estado_inicial"]
     resultados = np.zeros(n_simulaciones)
 
+    # Carry TDA diagram across runs for topological continuity (Bug #1).
+    prev_diagram = None
+
     for i in range(n_simulaciones):
         estado_ruido = {
             k: float(np.clip(v + np.random.normal(0, ruido_ini), r["min"], r["max"]))
                if isinstance(v, float) else v
             for k, v in estado_inicial.items()
         }
-        hist = simular(estado_ruido, escenario=escenario, pasos=pasos,
-                       cada_n_pasos=cada_n_pasos, config=config, verbose=False)
+        hist = simular(
+            estado_ruido,
+            escenario=escenario,
+            pasos=pasos,
+            cada_n_pasos=cada_n_pasos,
+            config=config,
+            verbose=False,
+            prev_tda_diagram=prev_diagram,
+        )
+        # Forward the TDA diagram to the next batch run.
+        prev_diagram = hist[-1].get("_tda_diagram", prev_diagram)
         resultados[i] = hist[-1]["opinion"]
 
     neutro = _neutro(cfg)
@@ -1503,14 +1603,14 @@ def run_with_schedule(
     r = _get_rango(cfg)
     alpha_blend = cfg["alpha_blend"]
     
-    estado = estado_inicial.copy()
+    estado = copy.deepcopy(estado_inicial)
     estado.setdefault("opinion_prev", estado["opinion"])
     estado.setdefault("confianza", 0.5)
     estado.setdefault("opinion_grupo_a", min(estado["opinion"] + 0.2 * _amplitud(cfg), r["max"]))
     estado.setdefault("opinion_grupo_b", max(estado["opinion"] - 0.2 * _amplitud(cfg), r["min"]))
     estado.setdefault("pertenencia_grupo", 0.6)
 
-    historial: list[dict] = [estado.copy()]
+    historial: list[dict] = [copy.deepcopy(estado)]
     
     name_to_id = {v: k for k, v in NOMBRES_REGLAS.items()}
     
@@ -1518,11 +1618,8 @@ def run_with_schedule(
     for fase in strategy_schedule.get("interventions", []):
         start = max(paso_actual, fase["time_start"])
         end = fase["time_end"]
-        # Parsing fallback for manual LLM responses
-        regla_nombre = fase["model_name"].lower().strip()
-        if "degroot" in regla_nombre: regla_nombre = "memoria"
-        if "granovetter" in regla_nombre: regla_nombre = "umbral_heterogeneo"
-        if "hegselmann" in regla_nombre or "hk" in regla_nombre: regla_nombre = "hk"
+        # Robust alias resolution via ALIAS_MAP (Bug #4)
+        regla_nombre = _mapear_regla(fase["model_name"])
         
         regla_id = name_to_id.get(regla_nombre, 0) # Fallback a lineal(0)
         params = _validar_params(NOMBRES_REGLAS.get(regla_id, "lineal"), fase.get("parameters", {}))
@@ -1579,11 +1676,12 @@ def run_with_schedule(
             nuevo["_regla"]         = regla_id
             nuevo["_regla_nombre"]  = NOMBRES_REGLAS.get(regla_id, regla_nombre)
             nuevo["_razon"]         = razon
+            nuevo["_source"]        = "schedule"
             nuevo["_rango"]         = cfg["rango"]
             nuevo["_target_nodes"]  = target_nodes  # trazabilidad
 
             estado = nuevo
-            historial.append(estado.copy())
+            historial.append(copy.deepcopy(estado))
             paso_actual = paso + 1
 
     return historial
