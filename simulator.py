@@ -241,9 +241,14 @@ def _mapear_regla(nombre: str) -> str:
 
     Returns:
         Canonical rule name, or the normalised input if not found.
+        Logs a warning when no mapping is found.
     """
     key = nombre.lower().strip().replace(" ", "_").replace("-", "_")
-    return ALIAS_MAP.get(key, key)
+    mapped = ALIAS_MAP.get(key)
+    if mapped is None:
+        log.warning(f"_mapear_regla: unknown rule '{nombre}' (normalised: '{key}') → using as-is")
+        return key
+    return mapped
 
 
 # ============================================================
@@ -1304,6 +1309,13 @@ def simular(
     estado.setdefault("opinion_grupo_b",  max(estado["opinion"] - 0.2 * _amplitud(cfg), r["min"]))
     estado.setdefault("pertenencia_grupo", 0.6)
 
+    # Flag: Replicator (EGT) mode — LLM is bypassed, EWS flags must be isolated
+    _is_replicator_mode = cfg.get("modelo_matematico") == "Replicator"
+    # Strip stale EWS flags from the initial state so they are absent from t=0
+    # snapshot and do not contaminate the working state in Replicator mode (Bug #2).
+    if _is_replicator_mode:
+        estado.pop("_ews_flags", None)
+
     historial: list[dict] = [copy.deepcopy(estado)]
     regla_actual   = 0
     params_actuales: dict = {}
@@ -1314,8 +1326,6 @@ def simular(
     opinion_history: deque = deque(maxlen=HISTORY_BUFFER_SIZE)
     # Mutable runtime state for non-serialisable objects (e.g. TDA diagram)
     cfg_runtime: dict = {"prev_tda_diagram": prev_tda_diagram}
-    # Flag: Replicator (EGT) mode — LLM is bypassed, EWS flags must be isolated
-    _is_replicator_mode = cfg.get("modelo_matematico") == "Replicator"
 
     def _seleccionar(est, hist):
         # EGT Replicator forced mode: bypass LLM and lock to rule 9
@@ -1325,12 +1335,12 @@ def simular(
                 dtype=float,
             )
             dt = float(cfg.get("dt", 0.1))
-            return 9, {"payoff_matrix": payoff.tolist(), "dt": dt}, "replicador: EGT mode active", "heuristic"
+            return 9, {"payoff_matrix": payoff.tolist(), "dt": dt}, "replicador: EGT mode active", "config"
         ventana = hist[-cfg["ventana_historial_llm"]:]
         dec     = llamar_llm(est, escenario, ventana, cfg)
         r_id    = dec["regla"]
         p       = _validar_params(NOMBRES_REGLAS[r_id], dec.get("params", {}))
-        return r_id, p, dec.get("razon", ""), dec.get("_source", "heuristic")
+        return r_id, p, dec.get("razon", ""), dec.get("_source", "llm")
 
     regla_actual, params_actuales, razon_actual, source_actual = _seleccionar(estado, historial)
     if verbose:
@@ -1385,6 +1395,10 @@ def simular(
         nuevo["_razon"]        = razon_actual
         nuevo["_source"]       = source_actual
         nuevo["_rango"]        = cfg["rango"]
+        # EWS isolation: strip any stale flags from the snapshot before appending
+        # so that Replicator-mode history is clean (Bug #2).
+        if _is_replicator_mode:
+            nuevo.pop("_ews_flags", None)
 
         estado = nuevo
         historial.append(copy.deepcopy(estado))
@@ -1398,8 +1412,6 @@ def simular(
             # contaminating the LLM prompt across mode switches (Bug #2).
             if not _is_replicator_mode:
                 estado["_ews_flags"] = ews_flags
-            else:
-                estado.pop("_ews_flags", None)
             historial[-1]["ews"] = {
                 "metrics": {k: v.tolist() for k, v in ews_metrics.items()},
                 "flags":   ews_flags,
