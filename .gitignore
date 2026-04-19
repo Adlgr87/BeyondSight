@@ -12,3 +12,10 @@ beyondsight_run.log
 archive/
 .env
 leads.csv
+
+# Editor temporary / untitled files
+*~
+*.swp
+*.swo
+Untitled-*.txt
+Untitled*
