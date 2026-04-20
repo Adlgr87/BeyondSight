@@ -1373,12 +1373,24 @@ def simular_multiples(
     ruido_ini  = cfg["ruido_estado_inicial"]
     resultados = np.zeros(n_simulaciones)
 
+    # Keys whose valid range is [0, 1] regardless of the opinion range.
+    # Clipping these to the opinion range (e.g. [-1, 1] in bipolar mode) is
+    # incorrect: with low values and non-zero noise, they can go negative,
+    # which inflates ruido_std beyond its intended maximum and corrupts the
+    # noise model for the entire Monte Carlo run.
+    _UNIT_INTERVAL_KEYS = {"confianza", "pertenencia_grupo"}
+
     for i in range(n_simulaciones):
-        estado_ruido = {
-            k: float(np.clip(v + np.random.normal(0, ruido_ini), r["min"], r["max"]))
-               if isinstance(v, float) else v
-            for k, v in estado_inicial.items()
-        }
+        estado_ruido = {}
+        for k, v in estado_inicial.items():
+            if isinstance(v, float):
+                noisy = v + np.random.normal(0, ruido_ini)
+                if k in _UNIT_INTERVAL_KEYS:
+                    estado_ruido[k] = float(np.clip(noisy, 0.0, 1.0))
+                else:
+                    estado_ruido[k] = float(np.clip(noisy, r["min"], r["max"]))
+            else:
+                estado_ruido[k] = v
         hist = simular(estado_ruido, escenario=escenario, pasos=pasos,
                        cada_n_pasos=cada_n_pasos, config=config, verbose=False)
         resultados[i] = hist[-1]["opinion"]
