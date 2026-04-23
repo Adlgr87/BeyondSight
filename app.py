@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from i18n import t
 from social_architect import buscar_estrategia_inversa
 from visualizations import generate_social_network_viz
+from programmatic_architect import ProgrammaticArchitect, ARCHETYPES_UI_ORDER, ARCHETYPES
+from energy_engine import SocialEnergyEngine, run_energy_simulation
 from simulator import (
     DEFAULT_CONFIG,
     DEFAULT_PAYOFF_MATRIX,
@@ -303,7 +305,11 @@ with st.sidebar:
 # ------------------------------------------------------------
 # LÓGICA PRINCIPAL
 # ------------------------------------------------------------
-tab1, tab2 = st.tabs(['📊 Simulación Tradicional', '🧠 Arquitecto Social (Modo Inverso)'])
+tab1, tab2, tab3 = st.tabs([
+    '📊 Simulación Tradicional',
+    '🧠 Arquitecto Social (Modo Inverso)',
+    '⚡ Arquitecto Programático (Energy Engine)',
+])
 
 with tab1:
     if correr:
@@ -776,3 +782,237 @@ with tab2:
                 data=report_text,
                 file_name=f"Reporte_BeyondSight_{modo_inv.capitalize()}.txt",
             )
+
+# ============================================================
+# TAB 3 — ARQUITECTO PROGRAMÁTICO (Energy Engine)
+# ============================================================
+with tab3:
+    st.markdown("### ⚡ Arquitecto Programático — Simulador de Dinámicas Sociales")
+    st.markdown(
+        "Selecciona un escenario y observa cómo evoluciona la opinión pública "
+        "usando el **Motor de Energía de Langevin**."
+    )
+
+    # ── INIT STATE ──────────────────────────────────────────────────────────
+    if "prog_arch_scenario" not in st.session_state:
+        st.session_state["prog_arch_scenario"] = None
+    if "prog_arch_result" not in st.session_state:
+        st.session_state["prog_arch_result"] = None
+
+    architect = ProgrammaticArchitect(range_type="bipolar")
+    archetypes_list = architect.list_available_archetypes(ui_order=True)
+
+    # ── TARJETAS DE ESCENARIO ───────────────────────────────────────────────
+    st.markdown("#### Escenarios Disponibles")
+
+    # Renderizar en filas de 3
+    n_cols = 3
+    rows = [archetypes_list[i:i+n_cols] for i in range(0, len(archetypes_list), n_cols)]
+
+    for row in rows:
+        cols = st.columns(n_cols)
+        for col, arch in zip(cols, row):
+            with col:
+                key      = arch["key"]
+                selected = st.session_state["prog_arch_scenario"] == key
+                border_color = "#5ccfe6" if selected else "#1a2535"
+                bg_color     = "#0d1a27" if selected else "#0d1520"
+                label_sel    = " ✓" if selected else ""
+
+                st.markdown(
+                    f"""<div style="
+                        border: 2px solid {border_color};
+                        border-radius: 6px;
+                        background: {bg_color};
+                        padding: 16px 14px;
+                        margin-bottom: 8px;
+                        min-height: 110px;
+                    ">
+                        <div style="font-size:1.6rem; line-height:1;">{arch['icono']}</div>
+                        <div style="font-family:'IBM Plex Mono',monospace;
+                                    font-size:0.65rem; color:#3d5166;
+                                    text-transform:uppercase; letter-spacing:1.5px;
+                                    margin-top:6px;">{arch.get('categoria','')}</div>
+                        <div style="font-family:'IBM Plex Sans',sans-serif;
+                                    font-weight:600; color:#c5cdd9;
+                                    font-size:0.95rem; margin-top:2px;">{arch['nombre_ui']}{label_sel}</div>
+                        <div style="font-family:'IBM Plex Sans',sans-serif;
+                                    font-size:0.75rem; color:#5c7a96;
+                                    margin-top:4px; line-height:1.35;">{arch['descripcion_ui']}</div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    f"{'▶ Seleccionado' if selected else '▷ Seleccionar'}",
+                    key=f"btn_arch_{key}",
+                    use_container_width=True,
+                ):
+                    st.session_state["prog_arch_scenario"] = key
+                    st.session_state["prog_arch_result"] = None
+                    st.rerun()
+
+    # ── CONFIGURACIÓN Y EJECUCIÓN ───────────────────────────────────────────
+    if st.session_state["prog_arch_scenario"]:
+        selected_key = st.session_state["prog_arch_scenario"]
+        selected_arch = ARCHETYPES[selected_key]
+        meta = selected_arch["metadata"]
+        ep   = selected_arch["energy_params"]
+        dyn  = ep["dynamics"]
+
+        st.markdown("---")
+        st.markdown(
+            f"#### {meta['icono']} {meta['nombre_ui']} — *{meta['descripcion_ui']}*"
+        )
+
+        # Mostrar config técnica en expander
+        with st.expander("🔬 Configuración matemática del escenario"):
+            c_att, c_rep, c_dyn = st.columns(3)
+            with c_att:
+                st.markdown("**Atractores**")
+                for a in ep.get("attractors", []):
+                    st.markdown(
+                        f'<div class="log-entry">{a["label"]}: pos={a["position"]}, '
+                        f'fuerza={a["strength"]}</div>',
+                        unsafe_allow_html=True,
+                    )
+                if not ep.get("attractors"):
+                    st.caption("Ninguno (energía plana)")
+            with c_rep:
+                st.markdown("**Repulsores**")
+                for r in ep.get("repellers", []):
+                    st.markdown(
+                        f'<div class="log-entry">{r["label"]}: pos={r["position"]}, '
+                        f'fuerza={r["strength"]}</div>',
+                        unsafe_allow_html=True,
+                    )
+                if not ep.get("repellers"):
+                    st.caption("Ninguno")
+            with c_dyn:
+                st.markdown("**Dinámica**")
+                st.markdown(
+                    f'<div class="log-entry">Temperatura: {dyn["temperature"]}</div>'
+                    f'<div class="log-entry">Eta (paso): {dyn["eta"]}</div>'
+                    f'<div class="log-entry">λ social: {dyn["lambda_social"]}</div>',
+                    unsafe_allow_html=True,
+                )
+
+        # Controles de simulación
+        col_sl1, col_sl2, col_sl3 = st.columns(3)
+        with col_sl1:
+            prog_n_agents = st.slider("Agentes en la red", 20, 200, 80, 10,
+                                      key="prog_n_agents")
+        with col_sl2:
+            prog_n_steps = st.slider("Pasos de simulación", 30, 300, 120, 10,
+                                     key="prog_n_steps")
+        with col_sl3:
+            prog_connectivity = st.slider("Conectividad de la red", 0.05, 0.8, 0.25, 0.05,
+                                          key="prog_connectivity")
+
+        if st.button("⚡ Ejecutar Simulación de Energía", use_container_width=True):
+            with st.spinner("Corriendo motor de Langevin..."):
+                result = run_energy_simulation(
+                    archetype    = selected_arch,
+                    n_agents     = prog_n_agents,
+                    n_steps      = prog_n_steps,
+                    connectivity = prog_connectivity,
+                    seed         = 42,
+                    range_type   = "bipolar",
+                )
+            st.session_state["prog_arch_result"] = result
+            st.rerun()
+
+    # ── RESULTADOS ──────────────────────────────────────────────────────────
+    if st.session_state["prog_arch_result"]:
+        result = st.session_state["prog_arch_result"]
+        trajectory    = result["trajectory"]
+        steps_rec     = result["steps_recorded"]
+        metrics_final = result["metrics"]
+
+        st.markdown("---")
+        st.markdown("### Resultados del Motor de Energía")
+
+        # Métricas
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Tensión Total</div>
+                <div class="metric-value">{metrics_final['tension_total']:.3f}</div>
+                <div class="metric-delta-neu">energía media del sistema</div>
+            </div>""", unsafe_allow_html=True)
+        with m2:
+            pol_val = metrics_final['polarizacion']
+            pol_cls = "metric-delta-neg" if pol_val > 0.35 else "metric-delta-pos"
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Polarización (σ)</div>
+                <div class="metric-value">{pol_val:.3f}</div>
+                <div class="{pol_cls}">{'⚠ alta' if pol_val > 0.35 else '✓ baja'}</div>
+            </div>""", unsafe_allow_html=True)
+        with m3:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Disonancia Red</div>
+                <div class="metric-value">{metrics_final['disonancia_red']:.3f}</div>
+                <div class="metric-delta-neu">diferencia entre vecinos</div>
+            </div>""", unsafe_allow_html=True)
+        with m4:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">Convergencia</div>
+                <div class="metric-value">{metrics_final['convergencia']:.3f}</div>
+                <div class="metric-delta-neu">distancia media al centro</div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Gráfico de evolución: media y std por paso
+        means = [float(np.mean(traj)) for traj in trajectory]
+        stds  = [float(np.std(traj))  for traj in trajectory]
+
+        df_energy = pd.DataFrame({
+            "Media de Opinión (μ)": means,
+            "Desviación Std (σ)":   stds,
+            "Límite Superior (μ+σ)": [m + s for m, s in zip(means, stds)],
+            "Límite Inferior (μ-σ)": [m - s for m, s in zip(means, stds)],
+        }, index=steps_rec)
+
+        st.markdown("**Evolución del sistema (μ ± σ de opiniones)**")
+        st.line_chart(
+            df_energy[["Media de Opinión (μ)", "Límite Superior (μ+σ)", "Límite Inferior (μ-σ)"]],
+            color=["#5ccfe6", "#3d5166", "#3d5166"],
+        )
+
+        # Distribución final de opiniones
+        final_opinions = trajectory[-1]
+        st.markdown("**Distribución final de opiniones (último paso)**")
+        hist_vals, hist_bins = np.histogram(final_opinions, bins=30, range=(-1.0, 1.0))
+        bin_centers = 0.5 * (hist_bins[:-1] + hist_bins[1:])
+        df_hist = pd.DataFrame({
+            "Posición de Opinión": bin_centers,
+            "Cantidad de Agentes": hist_vals,
+        }).set_index("Posición de Opinión")
+        st.bar_chart(df_hist, color="#5ccfe6")
+
+        # Expander con stats detalladas
+        with st.expander("📊 Estadísticas detalladas (estado final)"):
+            final_arr = np.array(final_opinions)
+            st.markdown(f"""
+| Métrica | Valor |
+|---|---|
+| Media (μ) | `{float(np.mean(final_arr)):+.4f}` |
+| Mediana | `{float(np.median(final_arr)):+.4f}` |
+| Desviación estándar (σ) | `{float(np.std(final_arr)):.4f}` |
+| Mínimo | `{float(np.min(final_arr)):+.4f}` |
+| Máximo | `{float(np.max(final_arr)):+.4f}` |
+| P10 | `{float(np.percentile(final_arr, 10)):+.4f}` |
+| P90 | `{float(np.percentile(final_arr, 90)):+.4f}` |
+| Agentes en extremo izq (<-0.7) | `{int(np.sum(final_arr < -0.7))}` |
+| Agentes en extremo der (>+0.7) | `{int(np.sum(final_arr > 0.7))}` |
+| Agentes en el centro (±0.2) | `{int(np.sum(np.abs(final_arr) < 0.2))}` |
+""")
+    elif st.session_state["prog_arch_scenario"] is None:
+        st.markdown(f"""
+        <div style="border:1px dashed #1a2535;border-radius:4px;padding:40px;
+                    text-align:center;margin-top:1.5rem;">
+            <div style="font-family:'IBM Plex Mono',monospace;color:#3d5166;
+                        font-size:0.8rem;letter-spacing:2px;">
+                SELECCIONA UN ESCENARIO ARRIBA Y PULSA EJECUTAR
+            </div>
+        </div>""", unsafe_allow_html=True)
