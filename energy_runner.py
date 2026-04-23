@@ -1,0 +1,189 @@
+"""
+energy_runner.py — Orquestador de simulaciones Langevin para BeyondSight
+
+Conecta: ProgrammaticArchitect → EnergyConfig → SocialEnergyEngine.
+Devuelve historial y métricas con la misma interfaz que ``simulator.py``,
+permitiendo intercambio transparente entre motor discreto y continuo.
+
+Uso típico::
+
+    from energy_runner import run_energy_simulation
+
+    result = run_energy_simulation(
+        user_goal="polarizacion_extrema",
+        n_agents=100,
+        steps=200,
+        seed=42,
+    )
+    print(result["summary"])
+"""
+
+from typing import Optional
+
+import numpy as np
+
+from energy_engine import SocialEnergyEngine, random_network
+from energy_schemas import EnergyConfig
+from programmatic_architect import ProgrammaticArchitect
+
+
+def run_energy_simulation(
+    user_goal: str,
+    n_agents: int = 50,
+    steps: int = 100,
+    connectivity: float = 0.3,
+    range_type: str = "bipolar",
+    seed: int = 42,
+    llm_client=None,
+    config_overrides: Optional[dict] = None,
+    metrics_every_n: int = 1,
+) -> dict:
+    """
+    Ejecuta una simulación completa del motor de Langevin de red.
+
+    Parameters
+    ----------
+    user_goal : str
+        Objetivo/intención del usuario (se busca en arquetipos → caché → LLM).
+    n_agents : int
+        Número de agentes (≥ 2).
+    steps : int
+        Número de pasos de simulación (≥ 1).
+    connectivity : float
+        Probabilidad de enlace en la red aleatoria (0–1).
+    range_type : str
+        ``"bipolar"`` ([-1, 1]) o ``"unipolar"`` ([0, 1]).
+    seed : int
+        Semilla para reproducibilidad.
+    llm_client : Any, optional
+        Cliente LLM externo pasado al arquitecto.
+    config_overrides : dict, optional
+        Sobrescrituras de dinámica: ``temperature``, ``lambda_social``, ``eta``.
+    metrics_every_n : int
+        Frecuencia de cálculo de métricas completas (1 = cada paso).
+
+    Returns
+    -------
+    dict con claves:
+        - ``history``: lista de dicts por paso (``_paso``, ``mean_opinion``,
+          ``std_opinion``, ``opinions_snapshot`` cada 10 pasos).
+        - ``metrics_timeline``: lista de métricas del sistema.
+        - ``final_state``: opiniones finales, media y desviación.
+        - ``summary``: resumen ejecutivo de la simulación.
+        - ``config_used``: configuración Pydantic serializada.
+        - ``archetype_info``: metadatos del arquetipo/LLM usado.
+
+    Raises
+    ------
+    ValueError
+        Si ``n_agents < 2`` o ``steps < 1``.
+    """
+    if n_agents < 2 or steps < 1:
+        raise ValueError("n_agents debe ser >= 2 y steps >= 1")
+
+    # ── 1. Obtener y validar configuración ──────────────────────────────
+    architect = ProgrammaticArchitect(range_type=range_type, llm_client=llm_client)
+    landscape = architect.get_landscape(user_goal)
+    validated = EnergyConfig.model_validate(landscape)
+    params = validated.to_engine_dict()
+
+    # ── 2. Aplicar sobrescrituras de dinámica ──────────────────────────
+    if config_overrides:
+        dyn = params["dynamics"]
+        if "temperature" in config_overrides:
+            dyn["temperature"] = float(
+                np.clip(config_overrides["temperature"], 0.01, 0.20)
+            )
+        if "lambda_social" in config_overrides:
+            dyn["lambda_social"] = float(
+                np.clip(config_overrides["lambda_social"], 0.0, 1.0)
+            )
+        if "eta" in config_overrides:
+            dyn["eta"] = float(
+                np.clip(config_overrides["eta"], 0.001, 0.1)
+            )
+
+    # ── 3. Inicializar motor y red ──────────────────────────────────────
+    engine = SocialEnergyEngine(
+        range_type=range_type,
+        temperature=params["dynamics"]["temperature"],
+        lambda_social=params["dynamics"]["lambda_social"],
+    )
+    eta = params["dynamics"]["eta"]
+    adj = random_network(n_agents, connectivity=connectivity, seed=seed)
+
+    min_val, max_val = (0.0, 1.0) if range_type == "unipolar" else (-1.0, 1.0)
+    rng = np.random.default_rng(seed)
+    opinions = rng.uniform(min_val, max_val, size=n_agents)
+
+    # ── 4. Bucle de simulación ──────────────────────────────────────────
+    history: list[dict] = []
+    metrics_timeline: list[dict] = []
+
+    for t in range(steps + 1):
+        history.append({
+            "_paso": t,
+            "mean_opinion": float(np.mean(opinions)),
+            "std_opinion": float(np.std(opinions)),
+            # Snapshots completos en t=0, cada 10 pasos y al final
+            "opinions_snapshot": (
+                opinions.tolist()
+                if (t % 10 == 0 or t == steps)
+                else None
+            ),
+        })
+
+        if t % metrics_every_n == 0:
+            mets = engine.system_metrics(
+                opinions, adj,
+                params["attractors"],
+                params["repellers"],
+            )
+            mets["_paso"] = t
+            metrics_timeline.append(mets)
+
+        if t < steps:
+            opinions = engine.step(
+                opinions, adj,
+                params["attractors"],
+                params["repellers"],
+                eta=eta,
+                rng=rng,
+            )
+
+    # ── 5. Calcular resumen ─────────────────────────────────────────────
+    initial_op = history[0]["mean_opinion"]
+    final_op = history[-1]["mean_opinion"]
+    delta = final_op - initial_op
+    neutro = 0.0 if range_type == "bipolar" else 0.5
+
+    all_means = [h["mean_opinion"] for h in history]
+    all_polar = (
+        [m["polarizacion"] for m in metrics_timeline]
+        if metrics_timeline
+        else [0.0]
+    )
+
+    return {
+        "history": history,
+        "metrics_timeline": metrics_timeline,
+        "final_state": {
+            "opinions": opinions.tolist(),
+            "mean_opinion": final_op,
+            "std_opinion": float(np.std(opinions)),
+        },
+        "summary": {
+            "opinion_inicial": initial_op,
+            "opinion_final": final_op,
+            "delta_total": delta,
+            "media": float(np.mean(all_means)),
+            "desviacion": float(np.std(all_means)),
+            "polarizacion_media": float(np.mean(all_polar)),
+            "pasos": steps,
+            "regla_dominante": "langevin_energy",
+            "neutro": neutro,
+            "rango": f"[{min_val}, {max_val}]",
+        },
+        "config_used": validated.model_dump(),
+        "archetype_info": landscape.get("metadata", {}),
+    }
