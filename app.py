@@ -27,6 +27,8 @@ from simulator import (
     simular,
     simular_multiples,
 )
+from programmatic_architect import ProgrammaticArchitect, ARCHETYPES
+from energy_engine import SocialEnergyEngine, run_energy_simulation
 
 # Load environment variables from .env
 load_dotenv()
@@ -61,6 +63,10 @@ if "objetivo_inverso" not in st.session_state:
 if "corporate_graph" not in st.session_state:
     # Almacena el grafo NetworkX si se sube un CSV corporativo
     st.session_state["corporate_graph"] = None
+if "energy_sim_result" not in st.session_state:
+    st.session_state["energy_sim_result"] = None
+if "energy_archetype_key" not in st.session_state:
+    st.session_state["energy_archetype_key"] = "polarizacion_extrema"
 
 # ------------------------------------------------------------
 # ESTILOS
@@ -303,7 +309,11 @@ with st.sidebar:
 # ------------------------------------------------------------
 # LÓGICA PRINCIPAL
 # ------------------------------------------------------------
-tab1, tab2 = st.tabs(['📊 Simulación Tradicional', '🧠 Arquitecto Social (Modo Inverso)'])
+tab1, tab2, tab3 = st.tabs([
+    '📊 Simulación Tradicional',
+    '🧠 Arquitecto Social (Modo Inverso)',
+    '⚡ Arquitecto Social — Dinámicas Sociales',
+])
 
 with tab1:
     if correr:
@@ -776,3 +786,281 @@ with tab2:
                 data=report_text,
                 file_name=f"Reporte_BeyondSight_{modo_inv.capitalize()}.txt",
             )
+
+# ============================================================
+# TAB 3 — ARQUITECTO SOCIAL: SIMULADOR DE DINÁMICAS SOCIALES
+# (Powered by EnergyEngine + ProgrammaticArchitect)
+# ============================================================
+with tab3:
+    st.markdown("### ⚡ Arquitecto Social — Simulador de Dinámicas Sociales")
+    st.markdown(
+        "Selecciona un **escenario social** y observa cómo evoluciona la opinión pública "
+        "usando el **Motor de Energía de Langevin de Red**. Cada escenario configura un "
+        "paisaje matemático de atractores y repulsores que empujan a los agentes."
+    )
+
+    architect = ProgrammaticArchitect(range_type="bipolar")
+    archetypes_list = architect.list_available_archetypes()
+
+    # ── SELECTOR DE ESCENARIOS ──────────────────────────────────────────────
+    st.markdown("#### 🗺️ Escenarios Disponibles")
+
+    # Mostrar tarjetas de escenarios en grid 3 columnas
+    n_arch = len(archetypes_list)
+    cols_per_row = 3
+    for row_start in range(0, n_arch, cols_per_row):
+        row_archs = archetypes_list[row_start: row_start + cols_per_row]
+        grid_cols = st.columns(cols_per_row)
+        for col_idx, arch in enumerate(row_archs):
+            with grid_cols[col_idx]:
+                is_selected = st.session_state["energy_archetype_key"] == arch["key"]
+                border_color = "#5ccfe6" if is_selected else "#1a2535"
+                bg_color     = "#0d1a26" if is_selected else "#0d1520"
+                st.markdown(
+                    f"""<div style="border:2px solid {border_color};border-radius:6px;
+                    padding:14px 16px;background:{bg_color};margin-bottom:8px;
+                    cursor:pointer;transition:all 0.15s;">
+                    <div style="font-size:1.6rem;margin-bottom:4px;">{arch['icono']}</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:0.75rem;
+                    color:#5ccfe6;font-weight:600;letter-spacing:0.5px;">{arch['nombre_ui']}</div>
+                    <div style="font-size:0.72rem;color:#5a7a99;margin-top:4px;
+                    line-height:1.4;">{arch['descripcion_ui']}</div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    f"{'✓ ' if is_selected else ''}Seleccionar",
+                    key=f"btn_arch_{arch['key']}",
+                    use_container_width=True,
+                ):
+                    st.session_state["energy_archetype_key"] = arch["key"]
+                    st.session_state["energy_sim_result"] = None
+                    st.rerun()
+
+    st.markdown("---")
+
+    # ── PARÁMETROS DEL MOTOR ─────────────────────────────────────────────────
+    selected_key   = st.session_state["energy_archetype_key"]
+    selected_arch  = architect.get_landscape_by_key(selected_key)
+    ep             = selected_arch["energy_params"]
+    dyn            = ep["dynamics"]
+    meta           = selected_arch["metadata"]
+
+    st.markdown(f"#### {meta['icono']} {meta['nombre_ui']}")
+    st.caption(meta["descripcion_ui"])
+
+    ep_col, param_col = st.columns([3, 2])
+
+    with ep_col:
+        st.markdown("**Configuración del Paisaje Energético**")
+        with st.expander("🎯 Atractores y Repulsores", expanded=True):
+            if ep["attractors"]:
+                st.markdown("**Atractores** (zonas de baja energía — hacia donde se mueve la sociedad):")
+                for att in ep["attractors"]:
+                    st.markdown(
+                        f'<span style="font-family:monospace;font-size:0.8rem;color:#bae67e;">'
+                        f'● {att["label"]} @ {att["position"]:+.2f} (fuerza: {att["strength"]})'
+                        f'</span>',
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.markdown(
+                    '<span style="color:#3d5166;font-size:0.8rem;">Sin atractores — energía plana</span>',
+                    unsafe_allow_html=True,
+                )
+
+            if ep["repellers"]:
+                st.markdown("**Repulsores** (zonas de alta energía — que la sociedad evita):")
+                for rep in ep["repellers"]:
+                    st.markdown(
+                        f'<span style="font-family:monospace;font-size:0.8rem;color:#ff8f40;">'
+                        f'✕ {rep["label"]} @ {rep["position"]:+.2f} (fuerza: {rep["strength"]})'
+                        f'</span>',
+                        unsafe_allow_html=True,
+                    )
+
+    with param_col:
+        st.markdown("**Parámetros de Simulación**")
+        energy_n_agents = st.slider(
+            "Número de agentes", 20, 200, 80, 10,
+            key="energy_n_agents",
+            help="Cantidad de agentes sociales en la simulación.",
+        )
+        energy_steps = st.slider(
+            "Pasos de tiempo", 20, 200, 60, 10,
+            key="energy_steps",
+            help="Duración de la simulación.",
+        )
+        energy_connectivity = st.slider(
+            "Conectividad de red", 0.1, 0.9, 0.3, 0.05,
+            key="energy_connectivity",
+            help="Densidad de conexiones entre agentes. 0.1 = dispersa, 0.9 = densa.",
+        )
+
+        st.markdown("**Ajuste fino de dinámica:**")
+        e_temperature = st.slider(
+            "Temperatura (libre albedrío)", 0.01, 0.20,
+            float(dyn["temperature"]), 0.01,
+            key="energy_temperature",
+            help="Alta temperatura = más caos e imprevisibilidad.",
+        )
+        e_lambda = st.slider(
+            "λ Social (red vs. escenario)", 0.0, 1.0,
+            float(dyn["lambda_social"]), 0.05,
+            key="energy_lambda",
+            help="0 = solo el escenario (propaganda). 1 = solo los vecinos (cámara de eco).",
+        )
+        e_eta = st.slider(
+            "η (velocidad de cambio)", 0.001, 0.05,
+            float(dyn["eta"]), 0.001,
+            format="%.3f",
+            key="energy_eta",
+            help="Tamaño del paso de integración de Langevin.",
+        )
+
+    # ── EJECUTAR SIMULACIÓN ──────────────────────────────────────────────────
+    if st.button("⚡ Ejecutar Simulación de Paisaje Energético", use_container_width=True):
+        dynamics_override = {
+            "temperature":    e_temperature,
+            "eta":            e_eta,
+            "lambda_social":  e_lambda,
+        }
+        with st.spinner("Ejecutando motor de Langevin de Red..."):
+            result = run_energy_simulation(
+                n_agents=energy_n_agents,
+                steps=energy_steps,
+                attractors=ep["attractors"],
+                repellers=ep["repellers"],
+                dynamics=dynamics_override,
+                range_type="bipolar",
+                connectivity=energy_connectivity,
+                seed=42,
+            )
+            st.session_state["energy_sim_result"] = result
+
+    # ── RESULTADOS ───────────────────────────────────────────────────────────
+    result = st.session_state.get("energy_sim_result")
+    if result:
+        st.markdown("---")
+        st.markdown("### 📊 Resultados del Motor de Energía")
+
+        fm = result.get("final_metrics", {})
+        mc1, mc2, mc3, mc4 = st.columns(4)
+
+        with mc1:
+            st.markdown(
+                f"""<div class="metric-card">
+                <div class="metric-label">Tensión Total</div>
+                <div class="metric-value">{fm.get('tension_total', 0):.3f}</div>
+                <div class="metric-delta-neu">energía media del sistema</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        with mc2:
+            pol_v = fm.get("polarizacion", 0)
+            pol_cls = "metric-delta-neg" if pol_v > 0.35 else "metric-delta-neu"
+            st.markdown(
+                f"""<div class="metric-card">
+                <div class="metric-label">Polarización</div>
+                <div class="metric-value">{pol_v:.3f}</div>
+                <div class="{pol_cls}">desviación estándar de opiniones</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        with mc3:
+            st.markdown(
+                f"""<div class="metric-card">
+                <div class="metric-label">Disonancia Red</div>
+                <div class="metric-value">{fm.get('disonancia_red', 0):.3f}</div>
+                <div class="metric-delta-neu">diferencia media entre vecinos</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        with mc4:
+            st.markdown(
+                f"""<div class="metric-card">
+                <div class="metric-label">Convergencia</div>
+                <div class="metric-value">{fm.get('convergencia', 0):.3f}</div>
+                <div class="metric-delta-neu">distancia media del centro</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Gráfico de evolución de opiniones (media, p10, p90 a lo largo del tiempo)
+        hist = result["opinions_history"]
+        steps_arr  = list(range(len(hist)))
+        means      = [float(np.mean(h)) for h in hist]
+        stds       = [float(np.std(h)) for h in hist]
+        p10s       = [float(np.percentile(h, 10)) for h in hist]
+        p90s       = [float(np.percentile(h, 90)) for h in hist]
+        mins_arr   = [float(np.min(h)) for h in hist]
+        maxs_arr   = [float(np.max(h)) for h in hist]
+
+        chart_data = pd.DataFrame({
+            "Media":      means,
+            "P10":        p10s,
+            "P90":        p90s,
+            "Mínimo":     mins_arr,
+            "Máximo":     maxs_arr,
+        }, index=steps_arr)
+
+        st.markdown("**Evolución de la Distribución de Opiniones (todos los agentes)**")
+        st.line_chart(
+            chart_data,
+            color=["#5ccfe6", "#3d5166", "#bae67e", "#ff8f40", "#f28779"],
+        )
+
+        # Distribución final de opiniones (histograma aproximado con line chart)
+        final_opinions = np.array(hist[-1])
+        bins = np.linspace(-1.0, 1.0, 25)
+        counts, edges = np.histogram(final_opinions, bins=bins)
+        bin_centers = (edges[:-1] + edges[1:]) / 2.0
+        df_hist = pd.DataFrame({"Opinión": bin_centers, "Agentes": counts})
+
+        col_hist, col_metric = st.columns([2, 1])
+        with col_hist:
+            st.markdown("**Distribución Final de Opiniones**")
+            st.bar_chart(df_hist.set_index("Opinión"))
+
+        with col_metric:
+            st.markdown("**Métricas temporales**")
+            if result["metrics_history"]:
+                df_metrics = pd.DataFrame(result["metrics_history"])
+                st.line_chart(df_metrics[["tension_total", "polarizacion"]])
+
+        # Exportar resultados del EnergyEngine
+        with st.expander("⬇️ Exportar resultados del Motor de Energía"):
+            export_data = {
+                "escenario":      selected_key,
+                "metadata":       meta,
+                "energy_params":  ep,
+                "dynamics_used":  {"temperature": e_temperature, "eta": e_eta, "lambda_social": e_lambda},
+                "n_agents":       energy_n_agents,
+                "steps":          energy_steps,
+                "connectivity":   energy_connectivity,
+                "final_metrics":  fm,
+                "opinion_history_summary": {
+                    "means": means,
+                    "p10":   p10s,
+                    "p90":   p90s,
+                },
+            }
+            st.download_button(
+                "⬇ Descargar JSON (Motor de Energía)",
+                data=json.dumps(export_data, indent=2, default=str),
+                file_name=f"beyondsight_energy_{selected_key}.json",
+                mime="application/json",
+            )
+
+    else:
+        st.markdown(
+            f"""<div style="border:1px dashed #1a2535;border-radius:4px;padding:32px;
+            text-align:center;margin-top:1rem;">
+            <div style="font-family:'IBM Plex Mono',monospace;color:#3d5166;
+            font-size:0.8rem;letter-spacing:2px;">
+            SELECCIONA UN ESCENARIO Y PRESIONA ⚡ EJECUTAR SIMULACIÓN DE PAISAJE ENERGÉTICO
+            </div></div>""",
+            unsafe_allow_html=True,
+        )
