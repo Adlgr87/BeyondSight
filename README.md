@@ -30,6 +30,9 @@ The project is inspired by fundamental opinion dynamics models and cutting-edge 
 - **Heterogeneous Threshold (Granovetter, 1978):** Uses a normal distribution of thresholds in the population instead of a static one, enabling rapid social cascade phenomena.
 - **Co-evolutionary Networks and Homophily (Axelrod, 1997):** Influence intensity varies by opinion similarity, generating endogenous echo chambers.
 - **Confirmation Bias:** A cognitive transversal mechanism that systematically attenuates the weight of information contrary to the agent's current belief.
+- **Replicator Equation / Evolutionary Game Theory (Taylor & Jonker, 1978; Weibull, 1995):** Models evolutionary pressure between two group strategies. Population frequencies evolve according to relative payoff via an ODE integrated with RK45, driving opinion toward the fitness-maximising group alignment.
+- **Early Warning Signals / Critical Slowing Down (Scheffer et al., 2009; Dakos et al., 2012):** A sliding-window analysis that tracks variance, lag-1 autocorrelation and skewness of the opinion trajectory. Rising values signal that the system is approaching a tipping point before it actually tips.
+- **Topological Data Analysis / Persistent Homology (Carlsson, 2009; Perea & Harer, 2015):** The opinion time series is delay-embedded (Takens embedding) and passed through a Vietoris-Rips filtration. Wasserstein distance between successive H1 persistence diagrams detects qualitative regime shifts that scalar statistics can miss.
 - **Academic Connection:** BeyondSight's approach resonates with recent research like *"Opinion Consensus Formation Among Networked Large Language Models"* (January 2026), exploring how intelligent agents can reach consensus or polarization.
 - **Hybrid Architecture:** Unlike purely numerical simulations, BeyondSight uses an LLM (like Llama 3) to analyze historical trajectories and decide which mathematical transition regime is sociologically most coherent at each step.
 
@@ -57,14 +60,19 @@ This repository is ready to be deployed as a **Hugging Face Space**. Simply conn
 
 ```
 BeyondSight/
-├── archive/           # Historical versions and logs (git ignored)
-├── tests/             # Unit and integration tests
-├── .gitignore         # Ignored files configuration
-├── app.py             # Streamlit interface
-├── README.md          # Documentation (English)
-├── README_ES.md       # Documentation (Spanish)
-├── requirements.txt   # Dependencies
-└── simulator.py       # Simulator core and LLM logic
+├── archive/              # Historical versions and logs (git ignored)
+├── docs/                 # Project documentation assets
+├── tests/                # Unit and integration tests
+├── .gitignore            # Ignored files configuration
+├── app.py                # Streamlit interface
+├── i18n.py               # Internationalisation helpers
+├── README.md             # Documentation (English)
+├── README_ES.md          # Documentation (Spanish)
+├── requirements.txt      # Dependencies
+├── schemas.py            # Pydantic schemas (StrategyMatrix, Intervention)
+├── simulator.py          # Simulator core and LLM selector logic
+├── social_architect.py   # Social Architect inverse-engineering agent
+└── visualizations.py     # Plotly network topology visualisations
 ```
 
 ## Security

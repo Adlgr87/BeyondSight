@@ -64,6 +64,9 @@ El proyecto se inspira en modelos fundamentales de dinámica de opinión y en in
 - **Umbral Heterogéneo (Granovetter, 1978):** Uso de una distribución normal de umbrales en la población en lugar de uno estático, propiciando fenómenos de cascadas sociales rápidas.
 - **Redes Co-evolutivas y Homofilia (Axelrod, 1997):** La intensidad de la influencia varía según la similitud de las opiniones, lo que genera cámaras de eco (echo chambers) endógenas.
 - **Sesgo de Confirmación:** Un mecanismo transversal cognitivo que atenúa sistemáticamente el peso de la información contraria a la creencia actual del agente.
+- **Ecuación Replicadora / Teoría de Juegos Evolutiva (Taylor & Jonker, 1978; Weibull, 1995):** Modela la presión evolutiva entre dos estrategias de grupo. Las frecuencias poblacionales evolucionan según el payoff relativo mediante una EDO integrada con RK45, empujando la opinión hacia el grupo de mayor aptitud.
+- **Señales de Alerta Temprana / Desaceleración Crítica (Scheffer et al., 2009; Dakos et al., 2012):** Un análisis de ventana deslizante que monitorea la varianza, la autocorrelación con rezago-1 y la asimetría de la trayectoria de opinión. Valores crecientes señalan que el sistema se aproxima a un punto de inflexión antes de que este ocurra.
+- **Análisis Topológico de Datos / Homología Persistente (Carlsson, 2009; Perea & Harer, 2015):** La serie temporal de opinión se embebe con retraso (embedding de Takens) y se procesa mediante filtración Vietoris-Rips. La distancia de Wasserstein entre diagramas de persistencia H1 consecutivos detecta cambios cualitativos de régimen que las estadísticas escalares no capturan.
 - **Conexión Académica:** El enfoque de BeyondSight resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo agentes inteligentes forman opiniones en redes.
 - **Arquitectura Híbrida:** A diferencia de simulaciones puramente numéricas, BeyondSight utiliza un LLM (como Llama 3) para analizar la trayectoria histórica y decidir qué régimen matemático es sociológicamente apropiado.
 
@@ -91,13 +94,19 @@ Este repositorio está listo para ser desplegado como un **Hugging Face Space**.
 
 ```
 BeyondSight/
-├── archive/           # Versiones históricas y logs (ignorados por git)
-├── tests/             # Pruebas unitarias del simulador
-├── .gitignore         # Configuración de archivos ignorados
-├── app.py             # Interfaz Streamlit
-├── README.md          # Documentación y Meta-datos
-├── requirements.txt   # Dependencias
-└── simulator.py       # Núcleo del simulador y lógica LLM
+├── archive/              # Versiones históricas y logs (ignorados por git)
+├── docs/                 # Recursos de documentación del proyecto
+├── tests/                # Pruebas unitarias del simulador
+├── .gitignore            # Configuración de archivos ignorados
+├── app.py                # Interfaz Streamlit
+├── i18n.py               # Helpers de internacionalización
+├── README.md             # Documentación y Meta-datos (inglés)
+├── README_ES.md          # Documentación (español)
+├── requirements.txt      # Dependencias
+├── schemas.py            # Esquemas Pydantic (StrategyMatrix, Intervention)
+├── simulator.py          # Núcleo del simulador y lógica LLM
+├── social_architect.py   # Agente de ingeniería inversa (Arquitecto Social)
+└── visualizations.py     # Visualizaciones de topología de red con Plotly
 ```
 
 ## Licencia Ética
