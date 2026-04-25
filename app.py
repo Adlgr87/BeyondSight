@@ -32,6 +32,26 @@ from simulator import (
 load_dotenv()
 
 # ------------------------------------------------------------
+# GAME THEORY PRESETS (module-level constant)
+# Payoff values are in the [-1, 1] bipolar range.
+# ------------------------------------------------------------
+# Keys are positional indices matching the i18n preset_options list:
+#   0 → Custom / Personalizado
+#   1 → Prisoner's Dilemma / Dilema del Prisionero
+#   2 → Stag Hunt / Caza del Ciervo
+#   3 → Coordination / Coordinación
+_STRATEGIC_PRESETS: list[dict] = [
+    # 0 — Custom: neutral starting point
+    {"cc": 1.0, "cd": -1.0, "dc":  1.0, "dd": -1.0},
+    # 1 — Prisoner's Dilemma: defection tempts but mutual defection is costly
+    {"cc": 1.0, "cd": -1.0, "dc":  1.0, "dd": -0.5},
+    # 2 — Stag Hunt: mutual cooperation pays most; solo defection yields zero
+    {"cc": 1.0, "cd": -1.0, "dc":  0.0, "dd":  0.0},
+    # 3 — Coordination: matching strategies rewarded, mismatches punished
+    {"cc": 1.0, "cd": -1.0, "dc": -1.0, "dd":  1.0},
+]
+
+# ------------------------------------------------------------
 # PÁGINA
 # ------------------------------------------------------------
 st.set_page_config(
@@ -283,6 +303,40 @@ with st.sidebar:
         )
 
     st.markdown("---")
+    st.markdown(t("strategic_section", lang))
+    st.caption(t("strategic_help", lang))
+
+    activar_strategic = st.toggle(t("activate_strategic", lang), value=False)
+    strategic_cfg_ui: dict = {"enabled": False}
+    if activar_strategic:
+        # Game preset selector
+        preset_options = t("strategic_preset_options", lang)
+        preset_key = st.selectbox(t("strategic_preset", lang), preset_options)
+
+        # Resolve preset values from module-level constant via index
+        preset_idx = preset_options.index(preset_key)
+        preset_vals = _STRATEGIC_PRESETS[preset_idx]
+
+        col_cc, col_cd = st.columns(2)
+        col_dc, col_dd = st.columns(2)
+        with col_cc:
+            cc_val = st.slider(t("strategic_cc", lang), -1.0, 1.0, preset_vals["cc"], 0.1)
+        with col_cd:
+            cd_val = st.slider(t("strategic_cd", lang), -1.0, 1.0, preset_vals["cd"], 0.1)
+        with col_dc:
+            dc_val = st.slider(t("strategic_dc", lang), -1.0, 1.0, preset_vals["dc"], 0.1)
+        with col_dd:
+            dd_val = st.slider(t("strategic_dd", lang), -1.0, 1.0, preset_vals["dd"], 0.1)
+
+        omega = st.slider(t("strategic_weight", lang), 0.0, 1.0, 0.3, 0.05)
+
+        strategic_cfg_ui = {
+            "enabled": True,
+            "payoff_matrix": {"cc": cc_val, "cd": cd_val, "dc": dc_val, "dd": dd_val},
+            "strategic_weight": omega,
+        }
+
+    st.markdown("---")
     st.markdown(t("simulation_settings", lang))
 
     pasos       = st.slider(t("time_steps", lang),   20, 300, 60, 5)
@@ -327,6 +381,8 @@ with tab1:
             config_run["modelo_matematico"] = "Replicator"
             config_run["payoff_matrix"]     = payoff_matrix_cfg
             config_run["dt"]                = dt_cfg
+        if activar_strategic:
+            config_run["strategic"] = strategic_cfg_ui
 
         estado_inicial = {
             "opinion":          opinion0,
@@ -653,6 +709,8 @@ with tab2:
                 config_run["modelo_matematico"] = "Replicator"
                 config_run["payoff_matrix"]     = payoff_matrix_cfg
                 config_run["dt"]                = dt_cfg
+            if activar_strategic:
+                config_run["strategic"] = strategic_cfg_ui
             estado_inicial = {
                 "opinion": opinion0,
                 "propaganda": propaganda,
