@@ -277,7 +277,7 @@ class TestRunEnergySimulationSummary:
         assert -1.0 <= result["summary"]["media"] <= 1.0
 
     def test_config_overrides_clamp_temperature(self):
-        # temperature is clamped to [0.01, 0.20]; extreme values should be accepted
+        # temperature is clamped to [0.01, 0.20]; values outside this range are clamped
         result_lo = run_energy_simulation(
             "consenso_moderado", n_agents=5, steps=3,
             config_overrides={"temperature": 0.0}  # below min → clamped to 0.01

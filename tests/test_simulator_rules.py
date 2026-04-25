@@ -1,11 +1,13 @@
 """
 Tests for individual simulator rules and helper utilities.
 
+Covers rules 0-9 (base rules). Rules 10-12 (Nash, Bayesian, SIR) are tested
+in tests/test_extended_models.py.
+
 Covers:
-  - All 10 base rules (0-9): lineal, umbral, memoria, backlash, polarizacion,
+  - Base rules (0-9): lineal, umbral, memoria, backlash, polarizacion,
     hk, contagio_competitivo, umbral_heterogeneo, homofilia, replicador
   - Helper functions: resumen_historial (with config), calcular_efecto_grupos,
-    _aplicar_sesgo_confirmacion, _actualizar_pesos_homofilia,
     calculate_ews_metrics, check_ews_signals, apply_replicator_equation,
     get_graph_metrics
   - run_with_schedule integration
