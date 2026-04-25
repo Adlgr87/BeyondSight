@@ -114,7 +114,7 @@ The **Programmatic Architect** (`programmatic_architect.py`) ships with 8 valida
 
 ## Social Architect (Reverse Engineering)
 
-BeyondSight Enterprise introduces the **Social Architect**, an *LLM-in-the-loop* reverse engineering agent. Instead of predicting the future of a network, you define the sociological outcome you want (e.g., *"Achieve moderate consensus and eliminate polarization in 20 iterations"*), and the Social Architect works backwards to find the exact strategy that gets you there.
+BeyondSight introduces the **Social Architect**, an *LLM-in-the-loop* reverse engineering agent. Instead of predicting the future of a network, you define the sociological outcome you want (e.g., *"Achieve moderate consensus and eliminate polarization in 20 iterations"*), and the Social Architect works backwards to find the exact strategy that gets you there.
 
 ### How It Works
 

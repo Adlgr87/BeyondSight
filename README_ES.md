@@ -128,7 +128,7 @@ El **Arquitecto Programático** (`programmatic_architect.py`) incluye 8 arquetip
 
 ## Arquitecto Social (Ingeniería Inversa)
 
-BeyondSight Enterprise introduce al **Arquitecto Social**, un potente agente de ingeniería inversa apoyado en un bucle *LLM-in-the-loop*. En lugar de simplemente predecir el futuro de la red, tú defines el resultado sociológico que deseas (p. ej., *"Lograr un consenso moderado y eliminar la polarización en 20 iteraciones"*), y el Arquitecto Social trabaja hacia atrás para encontrar la estrategia exacta que te lleva allí.
+BeyondSight introduce al **Arquitecto Social**, un potente agente de ingeniería inversa apoyado en un bucle *LLM-in-the-loop*. En lugar de simplemente predecir el futuro de la red, tú defines el resultado sociológico que deseas (p. ej., *"Lograr un consenso moderado y eliminar la polarización en 20 iteraciones"*), y el Arquitecto Social trabaja hacia atrás para encontrar la estrategia exacta que te lleva allí.
 
 ### Cómo Funciona
 
@@ -217,10 +217,13 @@ El toggle **⚡ Paralelizar con Dask** activa `simular_multiples_dask()`, que en
 BeyondSight/
 ├── tests/                        # Pruebas unitarias e integración
 │   ├── test_energy_core.py       # Suite de pruebas del motor energético (42 tests)
+│   ├── test_game_theory.py       # Pruebas de la capa de Teoría de Juegos estratégica
+│   ├── test_integration_llm.py   # Pruebas de integración del selector LLM
 │   ├── test_simulator.py         # Pruebas del núcleo simulador
 │   ├── test_social_architect.py
 │   └── test_visualizations.py
 ├── docs/                         # Fuentes de documentación MkDocs
+├── .env.example                  # Plantilla de variables de entorno
 ├── .gitignore
 ├── app.py                        # Interfaz Streamlit
 ├── cache_manager.py              # Caché RAM + SQLite para paisajes sociales
@@ -234,10 +237,11 @@ BeyondSight/
 ├── README.md                     # Documentación (inglés)
 ├── README_ES.md                  # Documentación (español)
 ├── requirements.txt              # Dependencias
-├── schemas.py                    # Esquemas Pydantic para StrategyMatrix
-├── simulator.py                  # Núcleo: 13 reglas, paralelo Dask, lógica LLM
+├── schemas.py                    # Esquemas Pydantic para StrategyMatrix y Teoría de Juegos
+├── simulator.py                  # Núcleo: 13 reglas, EWS, TDA, paralelo Dask, lógica LLM
 ├── social_architect.py           # Agente de ingeniería inversa Arquitecto Social
-├── social_connectors.py          # Conectores de API Twitter/X y Reddit
+├── social_connectors.py          # Conectores de API Twitter/X y Reddit (datos empíricos en vivo)
+├── utility_logic.py              # Calculador de fuerza estratégica de Teoría de Juegos
 └── visualizations.py             # Ayudantes de visualización de red
 ```
 
