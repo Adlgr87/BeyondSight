@@ -1529,10 +1529,6 @@ def iter_simulation_ticks(
             ews_metrics = calculate_ews_metrics(list(opinion_history))
             ews_flags   = check_ews_signals(ews_metrics, cfg.get("ews_thresholds", {}))
             estado["_ews_flags"] = ews_flags
-            historial[-1]["ews"] = {
-                "metrics": {k: v.tolist() for k, v in ews_metrics.items()},
-                "flags":   ews_flags,
-            }
 
         # ── TDA: topological change detection every 5 steps ───────────
         if TDA_AVAILABLE and paso % 5 == 0 and len(opinion_history) >= HISTORY_BUFFER_SIZE:
@@ -1543,7 +1539,7 @@ def iter_simulation_ticks(
                 wasserstein_threshold=cfg.get("tda_wasserstein_threshold", 0.3),
             )
             cfg_runtime["prev_tda_diagram"] = prev_diagram
-            historial[-1]["tda_change"] = tda_change
+            estado["_tda_change"] = tda_change
 
     if verbose:
         log.info(
