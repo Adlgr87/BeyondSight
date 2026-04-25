@@ -1444,13 +1444,15 @@ def simular_multiples_dask(
     cada_n_pasos: int = 5,
     config: dict | None = None,
     n_simulaciones: int = 100,
+    seed: int | None = None,
 ) -> dict:
     """
     Runs N simulations in parallel using Dask delayed computation.
     Falls back to sequential simular_multiples if Dask is unavailable.
 
     Args:
-        Same as simular_multiples.
+        Same as simular_multiples, plus:
+        seed: Optional RNG seed for reproducibility (default: None = random).
 
     Returns:
         Same statistics dictionary as simular_multiples, with "parallel" key.
@@ -1465,7 +1467,7 @@ def simular_multiples_dask(
     cfg       = {**DEFAULT_CONFIG, **(config or {})}
     r         = _get_rango(cfg)
     ruido_ini = cfg["ruido_estado_inicial"]
-    rng       = np.random.default_rng(42)
+    rng       = np.random.default_rng(seed)
     noises    = rng.normal(0, ruido_ini, size=(n_simulaciones, len(estado_inicial)))
 
     @delayed

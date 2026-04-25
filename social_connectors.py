@@ -240,7 +240,7 @@ class RedditConnector:
             text = f"{post.title} {post.selftext or ''}"
             sentiment = _score_text(text)
             raw_scores.append(sentiment)
-            weights.append(max(1, abs(post.score) + 1))
+            weights.append(abs(post.score) + 1)
 
         raw_scores = np.array(raw_scores, dtype=float)
         weights = np.array(weights, dtype=float)
