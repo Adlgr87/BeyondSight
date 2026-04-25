@@ -281,20 +281,6 @@ def get_runtime_params(cultural_profile: str = "mixed") -> dict:
     if cultural_profile == "mixed":
         return params
 
-    # Collect all cultural modifiers from the master dictionary
-    cultural_modifiers: dict[str, float] = {}
-    for category in BEYONDSIGHT_EMPIRICAL_MASTER.values():
-        if not isinstance(category, dict):
-            continue
-        for param_data in category.values():
-            if not isinstance(param_data, dict):
-                continue
-            variance = param_data.get("cultural_variance", {})
-            if cultural_profile in variance:
-                # Modifier is an additive delta on the base value of each matching key
-                # Store modifiers keyed by a unique identifier (using the param value itself)
-                pass  # modifiers are applied below per known mapping
-
     # Apply known cultural variance to runtime params that have direct mapping
     # DERIVA_ALGORITMICA → temperature (caos social amplificado por algoritmos)
     deriva = BEYONDSIGHT_EMPIRICAL_MASTER["network_dynamics"]["DERIVA_ALGORITMICA"]
