@@ -26,6 +26,7 @@ from simulator import (
     resumen_historial,
     simular,
     simular_multiples,
+    simular_multiples_dask,
 )
 
 # Load environment variables from .env
@@ -205,6 +206,9 @@ with st.sidebar:
         if mc.strip():
             modelo = mc.strip()
 
+    usar_langchain = st.toggle("⛓️ Usar LangChain", value=False,
+        help="Usa LangChain en lugar de llamadas HTTP directas al LLM. Requiere langchain instalado.")
+
     st.markdown("---")
 
     # ── INITIAL STATE ──────────────────────────────────────
@@ -293,8 +297,58 @@ with st.sidebar:
     st.markdown(t("probabilistic_mode", lang))
     modo_prob = st.toggle(t("activate_multi_sim", lang), value=False)
     n_sims = 50
+    usar_dask = False
     if modo_prob:
         n_sims = st.slider(t("num_simulations", lang), 10, 200, 50, 10)
+        usar_dask = st.toggle("⚡ Paralelizar con Dask", value=False,
+            help="Usa Dask para paralelizar las simulaciones. Acelera el cálculo en máquinas con múltiples núcleos.")
+
+    st.markdown("---")
+    st.markdown("### 🌐 Datos de Redes Sociales")
+    activar_social = st.toggle("Importar datos reales de RRSS", value=False)
+    social_opinions = None
+
+    if activar_social:
+        red_social = st.radio("Red social", ["Twitter/X", "Reddit"], horizontal=True)
+        query_social = st.text_input("Búsqueda / tema", placeholder="ej. climate change, inteligencia artificial")
+
+        if red_social == "Twitter/X":
+            bearer_token = st.text_input("Bearer Token", type="password", key="tw_bearer")
+            if st.button("🐦 Obtener tweets") and query_social and bearer_token:
+                try:
+                    from social_connectors import TwitterConnector
+                    conn = TwitterConnector(bearer_token=bearer_token)
+                    result = conn.fetch_opinions(query_social, max_results=100,
+                                                 range_type="bipolar" if es_bipolar else "unipolar")
+                    social_opinions = result
+                    st.success(f"✅ {result['n_tweets']} tweets analizados | opinión media: {result['mean_opinion']:+.3f}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+        else:  # Reddit
+            reddit_client_id = st.text_input("Client ID", type="password", key="reddit_cid")
+            reddit_secret    = st.text_input("Client Secret", type="password", key="reddit_sec")
+            subreddit_name   = st.text_input("Subreddit", placeholder="ej. politics, worldnews")
+            if st.button("🤖 Obtener posts") and query_social and reddit_client_id and reddit_secret and subreddit_name:
+                try:
+                    from social_connectors import RedditConnector
+                    conn = RedditConnector(client_id=reddit_client_id, client_secret=reddit_secret)
+                    result = conn.fetch_opinions(subreddit_name, query_social, limit=100,
+                                                  range_type="bipolar" if es_bipolar else "unipolar")
+                    social_opinions = result
+                    st.success(f"✅ {result['n_posts']} posts de r/{subreddit_name} | opinión media: {result['mean_opinion']:+.3f}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        if social_opinions and len(social_opinions.get("opinions", [])) > 0:
+            social_mean = float(social_opinions["mean_opinion"])
+            st.caption(f"📊 σ={social_opinions['std_opinion']:.3f} | Opinión media de RRSS: {social_mean:+.3f}")
+            usar_opinion_social = st.toggle(
+                f"Usar {social_mean:+.3f} como opinión inicial (reemplaza el slider)",
+                value=True,
+                key="usar_opinion_social_toggle",
+            )
+            if usar_opinion_social:
+                opinion0 = social_mean
 
     st.markdown("---")
     correr = st.button(t("run_simulation", lang))
@@ -322,6 +376,7 @@ with tab1:
             "sesgo_confirmacion": sesgo_conf,
             "hk_epsilon":         hk_epsilon,
             "homofilia_tasa":     homofilia_tasa,
+            "usar_langchain":     usar_langchain,
         }
         if activar_replicador:
             config_run["modelo_matematico"] = "Replicator"
@@ -346,10 +401,16 @@ with tab1:
             )
             resultado_prob = None
             if modo_prob:
-                resultado_prob = simular_multiples(
-                    estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
-                    config=config_run, n_simulaciones=n_sims,
-                )
+                if usar_dask:
+                    resultado_prob = simular_multiples_dask(
+                        estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
+                        config=config_run, n_simulaciones=n_sims,
+                    )
+                else:
+                    resultado_prob = simular_multiples(
+                        estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
+                        config=config_run, n_simulaciones=n_sims,
+                    )
 
         stats     = resumen_historial(historial, config_run)
         opiniones = [h["opinion"] for h in historial]
@@ -363,6 +424,9 @@ with tab1:
             badges.append(f'<span class="badge" style="background:#1a2535;color:#c3a6ff;border:1px solid #c3a6ff">narrativa B={narrativa_b:+.2f}</span>')
         if hk_epsilon != 0.3:
             badges.append(f'<span class="badge" style="background:#1a2535;color:#bae67e;border:1px solid #bae67e">HK ε={hk_epsilon:.2f}</span>')
+        if activar_social and social_opinions and len(social_opinions.get("opinions", [])) > 0:
+            src = social_opinions.get("query", "RRSS")
+            badges.append(f'<span class="badge" style="background:#1a2535;color:#5ccfe6;border:1px solid #5ccfe6">📡 RRSS: {src[:20]}</span>')
         badges.append(
             f'<span class="badge" style="background:#0d1520;color:{color_rango};border:1px solid {color_rango}">'
             f'rango {nombre_rango.split("—")[0].strip()} · neutro={neutro}</span>'
@@ -513,6 +577,12 @@ with tab1:
                     extras += f" | adoptantes={h['_fraccion_adoptantes']:.2f}"
                 if "_sim_grupo_a" in h:
                     extras += f" | sim_A={h['_sim_grupo_a']:.2f} sim_B={h.get('_sim_grupo_b',0):.2f}"
+                if "_nash_sigma_a" in h:
+                    extras += f" | Nash σ_A={h['_nash_sigma_a']:.2f}"
+                if "_bayes_uncertainty" in h:
+                    extras += f" | BN uncertainty={h['_bayes_uncertainty']:.4f}"
+                if "_sir_I" in h:
+                    extras += f" | SIR I={h['_sir_I']:.3f} R={h['_sir_R']:.3f}"
                 st.markdown(
                     f'<div class="log-entry">t={h.get("_paso","?"):3} │ '
                     f'<b>{h.get("_regla_nombre","?")}</b> │ '
@@ -629,6 +699,8 @@ with tab2:
         "Ej: 'Quiero despolarizar una red dividida en dos bandos radicales y lograr un consenso moderado.'"
     )
     objetivo = st.text_area("✏️ Describe tu objetivo:", placeholder=placeholder_objetivo, height=100)
+    usar_langchain_arq = st.toggle("⛓️ Arquitecto con LangChain", value=False,
+        help="Usa LangChain chains en lugar de HTTP directo")
 
     if st.button("⚡ Generar Estrategia Maestra"):
         if objetivo:
@@ -688,6 +760,7 @@ with tab2:
                     config=config_run,
                     modo_simulacion=modo_simulacion,
                     metricas_red=metricas_red,
+                    use_langchain=usar_langchain_arq,
                 )
                 st.session_state["estr_inversa"] = {
                     "estrategia": estrategia,
