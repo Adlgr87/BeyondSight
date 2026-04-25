@@ -432,8 +432,7 @@ with st.sidebar:
                     social_opinions = result
                     st.success(f"✅ {result['n_tweets']} tweets analizados | opinión media: {result['mean_opinion']:+.3f}")
                 except Exception as e:
-                    st.error(f"Error: {e}")
-        else:  # Reddit
+                    _mostrar_error_seguro(e, "Twitter/X")
             reddit_client_id = st.text_input("Client ID", type="password", key="reddit_cid")
             reddit_secret    = st.text_input("Client Secret", type="password", key="reddit_sec")
             subreddit_name   = st.text_input("Subreddit", placeholder="ej. politics, worldnews")
@@ -446,7 +445,7 @@ with st.sidebar:
                     social_opinions = result
                     st.success(f"✅ {result['n_posts']} posts de r/{subreddit_name} | opinión media: {result['mean_opinion']:+.3f}")
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    _mostrar_error_seguro(e, "Reddit")
 
         if social_opinions and len(social_opinions.get("opinions", [])) > 0:
             social_mean = float(social_opinions["mean_opinion"])
