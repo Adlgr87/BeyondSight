@@ -113,6 +113,12 @@ class TestApplyEmpiricalProfile(unittest.TestCase):
         self.assertGreaterEqual(ruido, 0.01)
         self.assertLessEqual(ruido, 0.20)
 
+    def test_ruido_base_scaling_matches_temperature(self):
+        """ruido_base = temperature * 0.20, clamped to [0.01, 0.20]."""
+        result = apply_empirical_profile({})
+        expected = max(0.01, min(0.20, BEYONDSIGHT_RUNTIME_PARAMS["temperature"] * 0.20))
+        self.assertAlmostEqual(result["ruido_base"], expected, places=6)
+
     def test_payoff_cc_set_from_runtime(self):
         result = apply_empirical_profile({})
         cc = result["strategic"]["payoff_matrix"]["cc"]

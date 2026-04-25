@@ -211,8 +211,7 @@ def apply_empirical_profile(cfg: dict) -> dict:
 
     The mapping is:
       social_influence_lambda → efecto_vecinos_peso
-      temperature             → ruido_base   (scaled ×0.1 to match [0.01, 0.20])
-      attractor_depth         → strategic.payoff_matrix.cc (narrative strength proxy)
+      temperature             → ruido_base   (scaled ×0.20 to match [0.01, 0.20])
       payoff_coordination     → strategic.payoff_matrix.cc
       payoff_defection        → strategic.payoff_matrix.dd
 
