@@ -13,9 +13,79 @@ Donde:
 """
 import numpy as np
 
+try:
+    from numba import njit
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+    def njit(*args, **kwargs):
+        """No-op decorator when Numba is not installed."""
+        def decorator(fn):
+            return fn
+        return decorator if args and callable(args[0]) else decorator
+
 
 # Ancho gaussiano por defecto para pozos/picos del paisaje
 _SIGMA = 0.3
+
+
+@njit
+def _landscape_gradient_jit(
+    x: float,
+    att_positions: np.ndarray,
+    att_strengths: np.ndarray,
+    rep_positions: np.ndarray,
+    rep_strengths: np.ndarray,
+    sigma2: float,
+) -> float:
+    """
+    JIT-compiled gradient of the energy landscape U(x).
+    Works with plain arrays so Numba can compile it.
+    """
+    grad = 0.0
+    for i in range(len(att_positions)):
+        diff = x - att_positions[i]
+        g = np.exp(-diff * diff / (2.0 * sigma2))
+        grad += att_strengths[i] * diff / sigma2 * g
+    for i in range(len(rep_positions)):
+        diff = x - rep_positions[i]
+        g = np.exp(-diff * diff / (2.0 * sigma2))
+        grad -= rep_strengths[i] * diff / sigma2 * g
+    return grad
+
+
+@njit
+def _step_jit(
+    opinions: np.ndarray,
+    neighbor_mean: np.ndarray,
+    noise: np.ndarray,
+    att_positions: np.ndarray,
+    att_strengths: np.ndarray,
+    rep_positions: np.ndarray,
+    rep_strengths: np.ndarray,
+    lambda_social: float,
+    eta: float,
+    sigma2: float,
+    min_val: float,
+    max_val: float,
+) -> np.ndarray:
+    """JIT-compiled Langevin update step for all agents."""
+    n = len(opinions)
+    new_opinions = np.empty(n)
+    for i in range(n):
+        grad = _landscape_gradient_jit(
+            opinions[i], att_positions, att_strengths,
+            rep_positions, rep_strengths, sigma2,
+        )
+        social_drift    = lambda_social * (neighbor_mean[i] - opinions[i])
+        landscape_drift = (1.0 - lambda_social) * (-grad)
+        val = opinions[i] + eta * landscape_drift + eta * social_drift + noise[i]
+        if val < min_val:
+            val = min_val
+        elif val > max_val:
+            val = max_val
+        new_opinions[i] = val
+    return new_opinions
 
 
 def _gaussian(x: float, position: float, sigma: float = _SIGMA) -> float:
@@ -118,21 +188,48 @@ class SocialEnergyEngine:
         # ── Ruido estocástico (una muestra por agente) ─────────────────────────
         noise = np.sqrt(2.0 * eta * self.temperature) * np.random.randn(n)
 
-        # ── Actualización de cada agente ───────────────────────────────────────
-        new_opinions = np.empty(n)
-        for i in range(n):
-            grad = _landscape_gradient(opinions[i], attractors, repellers)
-            social_drift = self.lambda_social * (neighbor_mean[i] - opinions[i])
-            landscape_drift = (1.0 - self.lambda_social) * (-grad)
+        # ── Extract arrays for JIT-compiled hot path ───────────────────────────
+        sigma2 = _SIGMA ** 2
+        if attractors:
+            att_positions = np.array([a["position"] for a in attractors], dtype=np.float64)
+            att_strengths = np.array([a["strength"] for a in attractors], dtype=np.float64)
+        else:
+            att_positions = np.empty(0, dtype=np.float64)
+            att_strengths = np.empty(0, dtype=np.float64)
 
-            new_opinions[i] = (
-                opinions[i]
-                + eta * landscape_drift
-                + eta * social_drift
-                + noise[i]
+        if repellers:
+            rep_positions = np.array([r["position"] for r in repellers], dtype=np.float64)
+            rep_strengths = np.array([r["strength"] for r in repellers], dtype=np.float64)
+        else:
+            rep_positions = np.empty(0, dtype=np.float64)
+            rep_strengths = np.empty(0, dtype=np.float64)
+
+        # ── Actualización de cada agente (JIT path or Python fallback) ─────────
+        if NUMBA_AVAILABLE:
+            new_opinions = _step_jit(
+                opinions.astype(np.float64),
+                neighbor_mean.astype(np.float64),
+                noise.astype(np.float64),
+                att_positions, att_strengths,
+                rep_positions, rep_strengths,
+                self.lambda_social, eta, sigma2,
+                self.min_val, self.max_val,
             )
+        else:
+            new_opinions = np.empty(n)
+            for i in range(n):
+                grad = _landscape_gradient(opinions[i], attractors, repellers)
+                social_drift = self.lambda_social * (neighbor_mean[i] - opinions[i])
+                landscape_drift = (1.0 - self.lambda_social) * (-grad)
+                new_opinions[i] = (
+                    opinions[i]
+                    + eta * landscape_drift
+                    + eta * social_drift
+                    + noise[i]
+                )
+            new_opinions = np.clip(new_opinions, self.min_val, self.max_val)
 
-        return np.clip(new_opinions, self.min_val, self.max_val)
+        return new_opinions
 
     def system_metrics(
         self,

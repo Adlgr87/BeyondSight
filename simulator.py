@@ -50,6 +50,12 @@ try:
 except ImportError:
     TDA_AVAILABLE = False
 
+try:
+    from extended_models import regla_nash, regla_bayesiana, regla_sir
+    EXTENDED_MODELS_AVAILABLE = True
+except ImportError:
+    EXTENDED_MODELS_AVAILABLE = False
+
 # ------------------------------------------------------------
 # LOGGING
 # ------------------------------------------------------------
@@ -184,6 +190,9 @@ _RANGOS_PARAMS: dict[str, dict[str, tuple]] = {
     "umbral_heterogeneo":   {"media": (0.3, 0.7), "std": (0.05, 0.25)},
     "homofilia":            {"tasa": (0.02, 0.15)},
     "replicador":           {"dt": (0.01, 1.0)},
+    "nash":                 {"c_same": (1.0, 3.0), "c_diff": (0.0, 1.5), "intensity": (0.5, 2.0)},
+    "bayesiano":            {"n_prior": (5.0, 20.0), "n_obs": (2.0, 10.0), "inertia": (0.1, 0.8)},
+    "sir":                  {"beta": (0.05, 0.8), "gamma": (0.01, 0.5), "dt": (0.05, 0.5)},
 }
 
 # Sliding-window size used by EWS metrics and TDA detection
@@ -854,6 +863,11 @@ REGLAS: dict[str, dict[int, Any]] = {
     }
 }
 
+if EXTENDED_MODELS_AVAILABLE:
+    REGLAS["campana"][10] = regla_nash
+    REGLAS["campana"][11] = regla_bayesiana
+    REGLAS["campana"][12] = regla_sir
+
 NOMBRES_REGLAS = {
     0: "lineal",
     1: "umbral",
@@ -865,6 +879,9 @@ NOMBRES_REGLAS = {
     7: "umbral_heterogeneo",
     8: "homofilia",
     9: "replicador",
+    10: "nash",
+    11: "bayesiano",
+    12: "sir",
 }
 
 # Descripción de cada regla para la UI
@@ -879,6 +896,9 @@ DESCRIPCIONES_REGLAS = {
     7: "Distribución de umbrales — cascadas sociales (Granovetter)",
     8: "Red co-evolutiva — homofilia dinámica",
     9: "Ecuación replicadora — dinámica evolutiva de estrategias (EGT)",
+    10: "Equilibrio de Nash — estrategias estables en juego de coordinación",
+    11: "Red Bayesiana — actualización probabilística de creencias",
+    12: "SIR Epidemiológico — contagio de opiniones como epidemia",
 }
 
 
@@ -938,7 +958,10 @@ Decision Examples:
 - strong trend already started → polarizacion
 - social cascade effect desired → umbral_heterogeneo
 - groups tend to cluster by similarity → homofilia
-- evolutionary pressure between group strategies → replicador"""
+- evolutionary pressure between group strategies → replicador
+- groups converging, coordination equilibrium → nash
+- probabilistic belief update with evidence → bayesiano
+- epidemic-like opinion spread → sir"""
 
     base_prompt = f"""You are a rule selector for a social dynamics simulation.
 Scenario: {escenario} | Range: {rango_desc}
@@ -961,9 +984,12 @@ Available Rules:
 7: umbral_heterogeneo   — social cascades (Granovetter)
 8: homofilia            — co-evolutionary network, groups by similarity
 9: replicador           — evolutionary game theory, strategy frequencies
+10: nash               — Nash equilibrium, stable coordination strategies
+11: bayesiano          — Bayesian network, probabilistic belief update
+12: sir                — SIR epidemiological contagion
 
 Respond ONLY with JSON:
-{{"regla": <0-9>, "params": {{...}}, "razon": "<explanation>"}}
+{{"regla": <0-12>, "params": {{...}}, "razon": "<explanation>"}}
 Fallback: {{"regla": 0, "params": {{}}, "razon": "fallback"}}
 """
 
@@ -1163,6 +1189,12 @@ def llamar_llm_heuristico(estado: dict, escenario: str,
                 "params": {"alpha": 0.75, "beta": 0.18, "gamma": 0.07},
                 "razon": "memoria: sistema estable, inercia dominante"}
 
+    # Sistema estable con grupos muy similares → Nash equilibrium
+    if EXTENDED_MODELS_AVAILABLE and distancia_grupos < 0.25 * amp and abs(delta) < 0.02 * amp:
+        return {"regla": 10,
+                "params": {"c_same": 2.0, "c_diff": 0.5},
+                "razon": "nash: grupos próximos, equilibrio de coordinación"}
+
     return {"regla": 0,
             "params": {"a": 0.72, "b": 0.28},
             "razon": "lineal: condiciones moderadas"}
@@ -1296,7 +1328,9 @@ def simular(
         if "pertenencia_grupo" in estado_regla:
             nuevo["pertenencia_grupo"] = estado_regla["pertenencia_grupo"]
         # Métricas auxiliares de reglas avanzadas
-        for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b"):
+        for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b",
+                  "_nash_sigma_a", "_nash_sigma_b", "_bayes_uncertainty",
+                  "_sir_S", "_sir_I", "_sir_R"):
             if k in estado_regla:
                 nuevo[k] = estado_regla[k]
 
@@ -1396,6 +1430,75 @@ def simular_multiples(
         "neutro":         neutro,
         "n_simulaciones": n_simulaciones,
         "rango":          cfg["rango"],
+    }
+
+
+# ============================================================
+# SIMULACIÓN MÚLTIPLE — PARALELA CON DASK
+# ============================================================
+
+def simular_multiples_dask(
+    estado_inicial: dict,
+    escenario: str = "campana",
+    pasos: int = 50,
+    cada_n_pasos: int = 5,
+    config: dict | None = None,
+    n_simulaciones: int = 100,
+) -> dict:
+    """
+    Runs N simulations in parallel using Dask delayed computation.
+    Falls back to sequential simular_multiples if Dask is unavailable.
+
+    Args:
+        Same as simular_multiples.
+
+    Returns:
+        Same statistics dictionary as simular_multiples, with "parallel" key.
+    """
+    try:
+        from dask import delayed, compute as dask_compute
+    except ImportError:
+        log.warning("Dask no disponible — usando modo secuencial.")
+        return simular_multiples(estado_inicial, escenario, pasos,
+                                 cada_n_pasos, config, n_simulaciones)
+
+    cfg       = {**DEFAULT_CONFIG, **(config or {})}
+    r         = _get_rango(cfg)
+    ruido_ini = cfg["ruido_estado_inicial"]
+    rng       = np.random.default_rng(42)
+    noises    = rng.normal(0, ruido_ini, size=(n_simulaciones, len(estado_inicial)))
+
+    @delayed
+    def _run_one(noise_row: np.ndarray) -> float:
+        keys = list(estado_inicial.keys())
+        estado_ruido = {}
+        for idx, k in enumerate(keys):
+            v = estado_inicial[k]
+            if isinstance(v, float):
+                estado_ruido[k] = float(np.clip(v + noise_row[idx], r["min"], r["max"]))
+            else:
+                estado_ruido[k] = v
+        hist = simular(estado_ruido, escenario=escenario, pasos=pasos,
+                       cada_n_pasos=cada_n_pasos, config=config, verbose=False)
+        return hist[-1]["opinion"]
+
+    tasks      = [_run_one(noises[i]) for i in range(n_simulaciones)]
+    resultados = np.array(dask_compute(*tasks))
+
+    neutro = _neutro(cfg)
+    p10, p25, p50, p75, p90 = np.percentile(resultados, [10, 25, 50, 75, 90])
+    return {
+        "media":          float(resultados.mean()),
+        "std":            float(resultados.std()),
+        "p_sobre_neutro": float((resultados > neutro).mean()),
+        "percentiles":    {"p10": float(p10), "p25": float(p25), "p50": float(p50),
+                           "p75": float(p75), "p90": float(p90)},
+        "escenarios":     {"optimista": float(p90), "mediano": float(p50),
+                           "pesimista":  float(p10)},
+        "neutro":         neutro,
+        "n_simulaciones": n_simulaciones,
+        "rango":          cfg["rango"],
+        "parallel":       True,
     }
 
 
@@ -1569,7 +1672,9 @@ def run_with_schedule(
             nuevo = estado.copy()
             if "pertenencia_grupo" in estado_regla:
                 nuevo["pertenencia_grupo"] = estado_regla["pertenencia_grupo"]
-            for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b"):
+            for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b",
+                      "_nash_sigma_a", "_nash_sigma_b", "_bayes_uncertainty",
+                      "_sir_S", "_sir_I", "_sir_R"):
                 if k in estado_regla:
                     nuevo[k] = estado_regla[k]
 
