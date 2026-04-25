@@ -20,6 +20,8 @@ Hybrid social dynamics simulator — Numerical core + LLM as regime selector.
 
 BeyondSight bridges the gap between classic mathematical models of opinion formation and the contextual flexibility of Large Language Models (LLMs).
 
+At the heart of BeyondSight lies the **Social Architect** — a reverse-engineering LLM agent that discovers the precise sequence of mathematical interventions needed to steer any social network toward a desired outcome. Instead of predicting where a network *will* go, the Social Architect computes exactly *how to get* where you want it to go.
+
 ## Theoretical Foundations and Research
 
 The project is inspired by fundamental opinion dynamics models and cutting-edge research:
@@ -35,7 +37,30 @@ The project is inspired by fundamental opinion dynamics models and cutting-edge 
 
 ## Social Architect (Reverse Engineering)
 
-BeyondSight Enterprise introduces the **Social Architect**, an *LLM-in-the-loop* reverse engineering feature. Instead of predicting the future of a network, you provide the desired sociological outcome (e.g., "Achieve a moderate consensus and eliminate polarization in 20 iterations"). The heuristic LLM agent will iteratively run mathematical simulations, critique the timeline, and dynamically optimize the intervention variables until it discovers the exact interaction strategy (`StrategyMatrix`) required to mathematically achieve your exact goal.
+BeyondSight Enterprise introduces the **Social Architect**, an *LLM-in-the-loop* reverse engineering agent. Instead of predicting the future of a network, you define the sociological outcome you want (e.g., *"Achieve moderate consensus and eliminate polarization in 20 iterations"*), and the Social Architect works backwards to find the exact strategy that gets you there.
+
+### How It Works
+
+1. **Goal definition:** You describe the desired end state in plain language — consensus, polarization, viral spread, crisis containment, cultural alignment, etc.
+2. **Iterative simulation loop:** The LLM agent proposes a `StrategyMatrix` — a time-phased schedule of mathematical intervention regimes (HK, contagion, homophily, thresholds…). The simulator runs the schedule and scores the outcome.
+3. **Self-critique and refinement:** If the score falls below the target, the agent receives structured feedback (polarization level, delta, variance) and proposes an improved strategy. Up to `N` refinement rounds are executed automatically.
+4. **Narrative generation:** Once the optimal strategy is found, a second LLM call translates the mathematical parameters into a human-readable sociological or executive report — campaigns, policy levers, organizational actions — tailored to the operational mode.
+
+### Operational Modes
+
+| Mode | Domain | Vocabulary |
+|---|---|---|
+| **Macro** | Politics, public social networks, mass polarization | Media campaigns, viral hashtags, echo chambers, electoral polarization, influential nodes |
+| **Corporate** | HR, organizational change, internal leadership | 1-on-1 sessions, interdepartmental meetings, top-down communication, 30-60-90 day action plans, OKR alignment |
+
+In **Corporate mode**, the Social Architect identifies informal leaders (high betweenness centrality) as priority intervention targets, generating org-specific action plans instead of media strategies.
+
+### Key Output: `StrategyMatrix`
+
+The Social Architect returns a validated `StrategyMatrix` — a structured intervention schedule listing, for each time window: the mathematical regime, its tuning parameters, the targeted nodes (optional), and a plain-language rationale for that phase. This schedule can be exported, replayed in the simulator, or used as a blueprint for a real-world campaign.
+
+> **Example goal →** *"Stabilize employee approval despite an ongoing reorganization."*
+> **Output →** A 3-phase plan: first homophily-based cohesion among team leads, then a memory-stabilizing regime, finally a targeted top-down communication burst — with a full HR narrative explaining each phase in consulting language.
 
 ## Installation
 

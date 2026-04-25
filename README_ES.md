@@ -20,6 +20,8 @@ Simulador híbrido de dinámica social — Núcleo numérico + LLM como selector
 
 BeyondSight cierra la brecha entre los modelos matemáticos clásicos de formación de opinión y la flexibilidad contextual de los Modelos de Lenguaje de Gran Escala (LLMs).
 
+En el corazón de BeyondSight se encuentra el **Arquitecto Social** — un agente LLM de ingeniería inversa que calcula la secuencia precisa de intervenciones matemáticas necesarias para llevar cualquier red social hacia el resultado deseado. En lugar de predecir hacia dónde *irá* una red, el Arquitecto Social determina exactamente *cómo llegar* adonde quieres ir.
+
 ## ¿Por Qué BeyondSight?
 
 ¿Te has preguntado qué podría desencadenar una huelga masiva, o cómo un escándalo podría hundir la aprobación de un político? BeyondSight te permite simular estas dinámicas de una manera fundamentada en matemáticas pero impulsada por la intuición de la IA. No se trata solo de predecir el caos—es ayudarte a entender e incluso dirigir las mareas sociales.
@@ -69,7 +71,30 @@ El proyecto se inspira en modelos fundamentales de dinámica de opinión y en in
 
 ## Arquitecto Social (Ingeniería Inversa)
 
-BeyondSight Enterprise introduce al **Arquitecto Social**, nuestra funcionalidad de ingeniería inversa apoyada en un agente *LLM-in-the-loop*. En lugar de simplemente predecir el futuro de la red, proporcionas el resultado sociológico deseado, y el sistema trabaja hacia atrás para encontrar la secuencia óptima de intervenciones.
+BeyondSight Enterprise introduce al **Arquitecto Social**, un potente agente de ingeniería inversa apoyado en un bucle *LLM-in-the-loop*. En lugar de simplemente predecir el futuro de la red, tú defines el resultado sociológico que deseas (p. ej., *"Lograr un consenso moderado y eliminar la polarización en 20 iteraciones"*), y el Arquitecto Social trabaja hacia atrás para encontrar la estrategia exacta que te lleva allí.
+
+### Cómo Funciona
+
+1. **Definición del objetivo:** Describes en lenguaje natural el estado final deseado — consenso, polarización, propagación viral, contención de crisis, alineación cultural, etc.
+2. **Bucle de simulación iterativo:** El agente LLM propone una `StrategyMatrix` — un calendario de intervenciones matemáticas por fases (HK, contagio, homofilia, umbrales…). El simulador ejecuta el calendario y puntúa el resultado.
+3. **Autocrítica y refinamiento:** Si la puntuación no alcanza el objetivo, el agente recibe feedback estructurado (nivel de polarización, delta de opinión, varianza) y propone una estrategia mejorada. Se ejecutan automáticamente hasta `N` rondas de refinamiento.
+4. **Generación de narrativa:** Una vez hallada la estrategia óptima, una segunda llamada al LLM traduce los parámetros matemáticos a un informe sociológico o ejecutivo legible — campañas, palancas de política, acciones organizacionales — adaptado al modo operativo elegido.
+
+### Modos Operativos
+
+| Modo | Dominio | Vocabulario |
+|---|---|---|
+| **Macro** | Política, redes sociales masivas, polarización pública | Campañas mediáticas, hashtags virales, cámaras de eco, polarización electoral, nodos influyentes |
+| **Corporativo** | RRHH, cambio organizacional, liderazgo interno | Sesiones 1:1, reuniones interdepartamentales, comunicación top-down, planes 30-60-90 días, alineación con OKRs |
+
+En el **Modo Corporativo**, el Arquitecto Social identifica a los líderes informales (alta centralidad de intermediación) como objetivos prioritarios de intervención, generando planes de acción específicos para la organización en lugar de estrategias mediáticas.
+
+### Salida Clave: `StrategyMatrix`
+
+El Arquitecto Social devuelve una `StrategyMatrix` validada — un calendario de intervenciones estructurado que indica, para cada ventana temporal: el régimen matemático, sus parámetros de ajuste, los nodos objetivo (opcional) y una justificación en lenguaje natural para esa fase. Este calendario puede exportarse, reproducirse en el simulador o usarse como hoja de ruta para una campaña real.
+
+> **Ejemplo de objetivo →** *"Estabilizar la aprobación de los empleados durante una reestructuración organizacional."*
+> **Salida →** Un plan de 3 fases: primero cohesión basada en homofilia entre líderes de equipo, luego un régimen de memoria para estabilizar, y finalmente un impulso de comunicación top-down focalizado — con una narrativa de RRHH completa que explica cada fase en lenguaje consultivo.
 
 ## Instalación
 
