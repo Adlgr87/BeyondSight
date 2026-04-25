@@ -163,7 +163,7 @@ st.markdown(
 with st.sidebar:
 
     st.markdown("### BeyondSight Enterprise")
-    st.markdown("Gratis para uso académico (AGPL-3.0). Para agencias, corporativos y consultoría privada, se requiere Licencia Comercial.")
+    st.markdown("Gratis para uso no comercial (Prosperity Public License 3.0). Para agencias, corporativos y consultoría privada, se requiere Licencia Comercial.")
     st.link_button("💼 Adquirir Licencia Comercial", "mailto:BeyondSight@ejemplo.com")
     st.link_button("🤝 Contratar Consultoría", "mailto:BeyondSight@ejemplo.com")
     st.markdown("---")
