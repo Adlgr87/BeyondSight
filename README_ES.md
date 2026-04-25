@@ -66,8 +66,48 @@ El proyecto se inspira en modelos fundamentales de dinámica de opinión y en in
 - **Umbral Heterogéneo (Granovetter, 1978):** Uso de una distribución normal de umbrales en la población en lugar de uno estático, propiciando fenómenos de cascadas sociales rápidas.
 - **Redes Co-evolutivas y Homofilia (Axelrod, 1997):** La intensidad de la influencia varía según la similitud de las opiniones, lo que genera cámaras de eco (echo chambers) endógenas.
 - **Sesgo de Confirmación:** Un mecanismo transversal cognitivo que atenúa sistemáticamente el peso de la información contraria a la creencia actual del agente.
+- **Dinámica de Energía de Langevin:** Ecuaciones diferenciales estocásticas de inspiración física donde los agentes se mueven a través de un paisaje de energía social configurable con atractores y repulsores — el núcleo de simulación más reciente de BeyondSight.
 - **Conexión Académica:** El enfoque de BeyondSight resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo agentes inteligentes forman opiniones en redes.
 - **Arquitectura Híbrida:** A diferencia de simulaciones puramente numéricas, BeyondSight utiliza un LLM (como Llama 3) para analizar la trayectoria histórica y decidir qué régimen matemático es sociológicamente apropiado.
+
+## Motor de Paisaje Energético
+
+El **Motor de Paisaje Energético** de BeyondSight modela la dinámica social como un sistema físico donde la opinión de cada agente evoluciona según una ecuación diferencial estocástica de Langevin:
+
+```
+x_i(t+η) = x_i(t) − η·∇U(x_i) + η·λ·(x̄_vecinos − x_i) + √(2η·T)·ε
+```
+
+| Término | Significado |
+|---|---|
+| `∇U(x)` | Gradiente del paisaje de energía social (atractores/repulsores) |
+| `λ` (`lambda_social`) | Balance: 0 = solo paisaje, 1 = solo influencia de red social |
+| `T` (`temperature`) | Ruido / libre albedrío — mayor = comportamiento individual más caótico |
+| `ε ~ N(0,1)` | Término estocástico (integración Euler-Maruyama) |
+
+Los **Atractores** modelan fuerzas de cohesión social (puntos de consenso, identidades faccionales, posiciones oficiales). Los **Repulsores** modelan fuerzas de división social (aversión a la moderación, dinámicas anti-consenso). Todos los parámetros se validan mediante esquemas Pydantic v2 `EnergyConfig` antes de ejecutar cualquier simulación.
+
+### Arquetipos Sociales Pre-construidos
+
+El **Arquitecto Programático** (`programmatic_architect.py`) incluye 8 arquetipos validados que cubren los escenarios sociológicos más comunes:
+
+| Clave del arquetipo | Descripción |
+|---|---|
+| `polarizacion_extrema` | Dos bandos irreconciliables. El centro es tierra de nadie. |
+| `polarizacion_moderada` | Dos grupos, pero con diálogo posible en el centro. |
+| `consenso_moderado` | La sociedad tiende a acuerdos. El centro atrae a todos. |
+| `consenso_forzado` | Presión institucional fuerte hacia una sola posición. |
+| `fragmentacion_3_grupos` | Tres facciones que coexisten sin fusionarse. |
+| `fragmentacion_4_grupos` | Cuatro comunidades tribales con alta segmentación. |
+| `caos_social` | Sin estructura clara. Cada agente actúa por impulso propio. |
+| `radicalizacion_progresiva` | Los agentes empiezan al centro y son jalados hacia los extremos. |
+
+**Pipeline de resolución** — para cualquier objetivo en texto libre, el motor intenta en orden:
+1. **Coincidencia exacta de arquetipo** (instantáneo, sin llamada API)
+2. **Caché RAM** (submilisegundo, mismo proceso)
+3. **Caché SQLite** (`LandscapeCache`) — persiste entre sesiones de Streamlit y reinicios de contenedor
+4. **Generación LLM one-shot** (Groq / OpenAI / OpenRouter / Ollama) con validación Pydantic
+5. **Fallback** a `caos_social` si el LLM falla o devuelve una configuración inválida
 
 ## Arquitecto Social (Ingeniería Inversa)
 
@@ -116,13 +156,27 @@ Este repositorio está listo para ser desplegado como un **Hugging Face Space**.
 
 ```
 BeyondSight/
-├── archive/           # Versiones históricas y logs (ignorados por git)
-├── tests/             # Pruebas unitarias del simulador
-├── .gitignore         # Configuración de archivos ignorados
-├── app.py             # Interfaz Streamlit
-├── README.md          # Documentación y Meta-datos
-├── requirements.txt   # Dependencias
-└── simulator.py       # Núcleo del simulador y lógica LLM
+├── tests/                     # Pruebas unitarias e integración
+│   ├── test_energy_core.py    # Suite de pruebas del motor energético (42 tests)
+│   ├── test_simulator.py      # Pruebas del núcleo simulador
+│   ├── test_social_architect.py
+│   └── test_visualizations.py
+├── docs/                      # Fuentes de documentación MkDocs
+├── .gitignore
+├── app.py                     # Interfaz Streamlit
+├── cache_manager.py           # Caché RAM + SQLite para paisajes sociales
+├── energy_engine.py           # Motor de dinámica de Langevin (SocialEnergyEngine)
+├── energy_runner.py           # Orquestador de simulaciones Langevin
+├── energy_schemas.py          # Esquemas Pydantic v2 para EnergyConfig
+├── i18n.py                    # Ayudantes de internacionalización
+├── programmatic_architect.py  # Arquitecto Programático (arquetipos + caché + LLM)
+├── README.md                  # Documentación (inglés)
+├── README_ES.md               # Documentación (español)
+├── requirements.txt           # Dependencias
+├── schemas.py                 # Esquemas Pydantic para StrategyMatrix
+├── simulator.py               # Núcleo del simulador y lógica LLM
+├── social_architect.py        # Agente de ingeniería inversa Arquitecto Social
+└── visualizations.py          # Ayudantes de visualización de red
 ```
 
 ## Licencia Ética
