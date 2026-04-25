@@ -10,3 +10,6 @@ beyondsight_run.log
 .vscode/
 .kilocode/
 archive/
+.env
+leads.csv
+landscapes_cache.db
