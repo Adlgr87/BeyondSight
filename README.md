@@ -53,6 +53,26 @@ Unlike purely numerical simulations, BeyondSight uses an LLM (like Llama 3) to a
 
 **Academic Connection:** BeyondSight's approach resonates with recent research like *"Opinion Consensus Formation Among Networked Large Language Models"* (January 2026), exploring how intelligent agents can reach consensus or polarization.
 
+### Cross-Cutting Mechanisms
+
+Three mechanisms are applied transversally on top of any simulation rule at every step:
+
+- **Confirmation Bias (Sunstein 2009, Nickerson 1998):** Incoming information that contradicts the agent's current position is systematically attenuated proportionally to the configured bias level. At `sesgo_confirmacion = 1.0`, agents completely ignore counter-attitudinal propaganda.
+
+- **Dynamic Homophily (Axelrod 1997, Flache et al. 2017):** Group influence weights update automatically each step based on opinion similarity — the more similar a group's opinion, the stronger its pull. This generates endogenous echo-chamber formation without explicit community assignment.
+
+- **Strategic Game Theory Layer (Nash 1950, Axelrod 1984):** A payoff-based force (`utility_logic.py`) biases each agent toward cooperation or defection depending on neighbors' average position relative to the neutral point. A configurable 2×2 payoff matrix (Cooperation/Defection) and strategic weight ω control the intensity. Three pre-built game-theoretic presets (Prisoner's Dilemma, Stag Hunt, Coordination) plus a fully custom configuration are available in the UI.
+
+### Early Warning Signals & Topological Analysis
+
+BeyondSight monitors the simulation for proximity to tipping points using two complementary methods:
+
+**Early Warning Signals (EWS) — Critical Slowing Down (Scheffer et al., 2009; Dakos et al., 2012):**  
+Over a sliding window of the last 10 opinion values, the system continuously computes variance, lag-1 autocorrelation, and skewness. When any metric exceeds its threshold, a ⚠️ EWS warning is displayed in the UI — indicating that the system is approaching a bifurcation point and small perturbations may trigger large state changes.
+
+**Topological Data Analysis — Persistent Homology (Carlsson, 2009; Perea & Harer, 2015):**  
+When the optional `ripser` + `persim` packages are installed, BeyondSight performs Takens delay-embedding of the opinion time series and computes H1 persistence diagrams via Vietoris-Rips filtration. A significant Wasserstein distance between consecutive diagrams signals a topological regime change (`🔺 Topological change detected`) — a geometrically-grounded early warning that complements the statistical EWS indicators.
+
 ## Energy Landscape Engine
 
 BeyondSight's **Energy Landscape Engine** models social dynamics as a physical system where every agent's opinion evolves according to a Langevin stochastic differential equation:
@@ -142,6 +162,8 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+The UI supports **English and Spanish** — use the Language toggle at the top of the sidebar to switch languages at any time.
+
 ### Running on Hugging Face Spaces
 This repository is ready to be deployed as a **Hugging Face Space**. Simply connect this repo to a new Streamlit Space.
 
@@ -195,10 +217,13 @@ The **⚡ Paralelizar con Dask** toggle in the UI activates `simular_multiples_d
 BeyondSight/
 ├── tests/                        # Unit and integration tests
 │   ├── test_energy_core.py       # Energy engine test suite (42 tests)
+│   ├── test_game_theory.py       # Strategic Game Theory layer tests
+│   ├── test_integration_llm.py   # LLM selector integration tests
 │   ├── test_simulator.py         # Simulator core tests
 │   ├── test_social_architect.py
 │   └── test_visualizations.py
 ├── docs/                         # MkDocs documentation sources
+├── .env.example                  # Environment variable template
 ├── .gitignore
 ├── app.py                        # Streamlit interface
 ├── cache_manager.py              # RAM + SQLite landscape cache
@@ -206,16 +231,17 @@ BeyondSight/
 ├── energy_runner.py              # Langevin simulation orchestrator
 ├── energy_schemas.py             # Pydantic v2 schemas for EnergyConfig
 ├── extended_models.py            # Extended rules: Nash (10), Bayesian BN (11), SIR (12)
-├── i18n.py                       # Internationalization helpers
+├── i18n.py                       # Internationalization helpers (English / Spanish)
 ├── langchain_workflows.py        # LangChain chains for Social & Programmatic Architects
 ├── programmatic_architect.py     # Programmatic Architect (archetypes + cache + LLM)
 ├── README.md                     # Documentation (English)
 ├── README_ES.md                  # Documentation (Spanish)
 ├── requirements.txt              # Dependencies
-├── schemas.py                    # Pydantic schemas for StrategyMatrix
-├── simulator.py                  # Simulator core: 13 rules, Dask parallel, LLM logic
+├── schemas.py                    # Pydantic schemas for StrategyMatrix and Game Theory
+├── simulator.py                  # Simulator core: 13 rules, EWS, TDA, Dask parallel, LLM logic
 ├── social_architect.py           # Social Architect inverse-engineering agent
 ├── social_connectors.py          # Twitter/X and Reddit API connectors
+├── utility_logic.py              # Game Theory strategic force calculator
 └── visualizations.py             # Network visualization helpers
 ```
 
