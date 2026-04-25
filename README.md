@@ -131,32 +131,133 @@ The **Programmatic Architect** (`programmatic_architect.py`) ships with 8 valida
 4. **LLM one-shot generation** (Groq / OpenAI / OpenRouter / Ollama) with Pydantic validation
 5. **Fallback** to `caos_social` if LLM fails or returns invalid config
 
-## Social Architect (Reverse Engineering)
+## 🧠 Social Architect — The Crown Jewel
 
-BeyondSight introduces the **Social Architect**, an *LLM-in-the-loop* reverse engineering agent. Instead of predicting the future of a network, you define the sociological outcome you want (e.g., *"Achieve moderate consensus and eliminate polarization in 20 iterations"*), and the Social Architect works backwards to find the exact strategy that gets you there.
+The **Social Architect** is BeyondSight's flagship feature and its most powerful capability. Where traditional simulations ask *"what will happen?"*, the Social Architect answers: **"what must I do to make this happen?"**
 
-### How It Works
+### Concept: Sociological Reverse Engineering
 
-1. **Goal definition:** You describe the desired end state in plain language — consensus, polarization, viral spread, crisis containment, cultural alignment, etc.
-2. **Iterative simulation loop:** The LLM agent proposes a `StrategyMatrix` — a time-phased schedule of mathematical intervention regimes (HK, contagion, homophily, thresholds…). The simulator runs the schedule and scores the outcome.
-3. **Self-critique and refinement:** If the score falls below the target, the agent receives structured feedback (polarization level, delta, variance) and proposes an improved strategy. Up to `N` refinement rounds are executed automatically.
-4. **Narrative generation:** Once the optimal strategy is found, a second LLM call translates the mathematical parameters into a human-readable sociological or executive report — campaigns, policy levers, organizational actions — tailored to the operational mode.
+You describe the **desired social outcome** in plain language — the final state you want a social network, community, or organization to reach. The Social Architect figures out the **exact sequence of interventions** (a mathematically grounded action plan) needed to drive the system from its current state to your goal.
 
-### Operational Modes
+Examples of what you can ask for:
+- *"Eliminate polarization in 30 steps and achieve moderate consensus."*
+- *"Gradually shift the majority opinion toward adoption of a new policy."*
+- *"Dissolve an echo chamber and reconnect fragmented groups."*
+- *"Reduce resistance to organizational change among informal leaders."*
 
-| Mode | Domain | Vocabulary |
+The system responds with a **structured intervention schedule** (`StrategyMatrix`): a timeline of mathematical regimes, their parameters, and a human-readable sociological narrative explaining what each phase represents in the real world.
+
+---
+
+### Stochastic Dynamics: The Langevin Equations
+
+BeyondSight models social opinion as a continuous stochastic process. At each discrete time step `t`, the opinion of the representative agent evolves according to a **discrete-time Langevin equation**:
+
+```
+x(t + Δt)  =  f(x(t), r(t))  ·  α  +  b(x(t))  ·  (1 − α)  +  G(x(t))  +  η(t)
+```
+
+Where:
+
+| Term | Meaning |
+|---|---|
+| `f(x(t), r(t))` | Output of the active dynamical regime `r` (e.g., Hegselmann-Krause, threshold, memory, replicator…) |
+| `α` (alpha blend) | Blending weight between LLM-selected model and base tendency (default 0.80) |
+| `b(x(t))` | Base tendency: `0.92 · opinion + 0.08 · propaganda` — inertia and media pressure |
+| `G(x(t))` | Group polarization effect — weighted influence of ideological clusters A and B |
+| `η(t) ~ 𝒩(0, σ(t)²)` | **Stochastic Wiener increment** — Gaussian white noise representing social unpredictability |
+
+The **adaptive noise coefficient** `σ(t)` is the Langevin diffusion term and captures the idea that **distrust amplifies social volatility**:
+
+```
+σ(t) = σ_base + σ_distrust · (1 − trust(t))
+```
+
+- `σ_base = 0.03` — irreducible background noise (spontaneous opinion drift)
+- `σ_distrust = 0.08` — extra volatility injected when institutional trust is low
+- `trust(t) ∈ [0, 1]` — dynamically updated each step
+
+As trust erodes, the diffusion coefficient grows, producing wider fluctuations and making the system harder to steer — a mathematically grounded model of societal instability. In the multi-simulation probabilistic mode, each of the N runs receives an independent Wiener trajectory, yielding a **full probability distribution** of outcomes rather than a single deterministic path.
+
+---
+
+### The Iterative LLM–Simulation Loop
+
+The Social Architect operates through a closed feedback loop that combines the reasoning power of an LLM with the rigor of mathematical simulation:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SOCIAL ARCHITECT LOOP                        │
+│                                                                 │
+│  1. USER INPUT                                                  │
+│     Desired sociological outcome (free text) +                  │
+│     Initial network state                                       │
+│              │                                                  │
+│              ▼                                                  │
+│  2. LLM PROPOSAL                                                │
+│     The LLM (GPT-4o, Llama 3, Mistral…) reads the goal and     │
+│     proposes a StrategyMatrix: a JSON schedule of              │
+│     interventions (model_name, parameters, time windows)        │
+│              │                                                  │
+│              ▼                                                  │
+│  3. NUMERICAL SIMULATION                                        │
+│     run_with_schedule() executes each intervention phase        │
+│     through the Langevin engine, step by step                   │
+│              │                                                  │
+│              ▼                                                  │
+│  4. EVALUATION                                                  │
+│     Score 0–100 computed from polarization, opinion delta,      │
+│     variance. Qualitative feedback generated.                   │
+│              │                                                  │
+│         Score ≥ 90? ──YES──► 5. NARRATIVE (success)            │
+│              │                                                  │
+│             NO                                                  │
+│              │                                                  │
+│  6. REFINEMENT                                                  │
+│     Feedback injected into LLM context. LLM proposes a         │
+│     corrected strategy. Loop repeats (up to max_attempts).      │
+│              │                                                  │
+│         Best attempt ──────► 5. NARRATIVE (best effort)         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Step-by-step breakdown:**
+
+1. **User Input:** You describe the target state in natural language and optionally set the initial network conditions (opinion, trust, propaganda, group membership).
+
+2. **LLM Proposal:** An LLM (local via Ollama or cloud via Groq / OpenAI / OpenRouter) receives a system prompt that encodes its role as a sociological strategist and a user prompt containing the current network state, the goal, and any prior failed attempts. It outputs a structured `StrategyMatrix` JSON: a sequence of intervention phases, each specifying which mathematical regime to activate (`hk`, `umbral`, `memoria`, `contagio_competitivo`, etc.), its parameters, and a time window.
+
+3. **Numerical Simulation:** `run_with_schedule()` steps through the timeline. In each phase, the specified dynamical regime is locked in and applied at every time step through the Langevin engine described above. The stochastic noise `η(t)` is re-sampled at every step, ensuring realistic randomness.
+
+4. **Evaluation:** `evaluar_resultado()` computes a score (0–100) based on how close the final state is to the stated objective. It analyses mean polarization, total opinion drift (`delta`), and variance. Depending on the objective keywords (`"consenso"`, `"polariza"`, `"despolarizar"`, etc.), different success criteria apply.
+
+5. **Refinement:** If the score is below 90, the feedback (what went wrong, which metrics were off) is appended to the LLM context and a new iteration begins. The LLM can see all prior failures and is expected to correct its strategy accordingly.
+
+6. **Narrative:** Once a satisfactory strategy is found (or exhausted), `generar_narrativa_final()` asks the LLM to translate the dry mathematical schedule into a **rich sociological or organizational narrative** — explaining in human terms what each intervention phase represents in the real world.
+
+---
+
+### Two Operational Modes
+
+| Mode | Use Case | Vocabulary & Framing |
 |---|---|---|
-| **Macro** | Politics, public social networks, mass polarization | Media campaigns, viral hashtags, echo chambers, electoral polarization, influential nodes |
-| **Corporate** | HR, organizational change, internal leadership | 1-on-1 sessions, interdepartmental meetings, top-down communication, 30-60-90 day action plans, OKR alignment |
+| **Macro** | Public opinion, electoral campaigns, social media polarization, mass movements | Media campaigns, hashtags, echo chambers, political discourse, referendums |
+| **Corporate** | Organizational change, HR, internal culture, team alignment | 1:1 meetings, OKRs, informal leaders, resistance to change, 30-60-90 day plans |
 
-In **Corporate mode**, the Social Architect identifies informal leaders (high betweenness centrality) as priority intervention targets, generating org-specific action plans instead of media strategies.
+In **Corporate mode**, the Social Architect also receives network graph metrics (betweenness centrality, degree centrality) and can target specific high-influence nodes (informal leaders) as the primary recipients of early interventions, maximizing cascade effects within the organization.
 
-### Key Output: `StrategyMatrix`
+---
 
-The Social Architect returns a validated `StrategyMatrix` — a structured intervention schedule listing, for each time window: the mathematical regime, its tuning parameters, the targeted nodes (optional), and a plain-language rationale for that phase. This schedule can be exported, replayed in the simulator, or used as a blueprint for a real-world campaign.
+### Output: The StrategyMatrix
 
-> **Example goal →** *"Stabilize employee approval despite an ongoing reorganization."*
-> **Output →** A 3-phase plan: first homophily-based cohesion among team leads, then a memory-stabilizing regime, finally a targeted top-down communication burst — with a full HR narrative explaining each phase in consulting language.
+The result is a validated `StrategyMatrix` object containing:
+- A **sequence of intervention phases**, each with: start/end time, mathematical regime, parameters, and sociological rationale.
+- A **score** reflecting how precisely the simulation matched the stated goal.
+- A **final narrative** — a consultant-quality report explaining the full strategy in plain language.
+
+The Social Architect is, in essence, an **AI sociological engineer**: it searches the combinatorial space of mathematical intervention sequences, validates each candidate through the Langevin simulation engine, and refines its proposals through LLM self-critique until it finds the recipe that mathematically achieves your desired social outcome.
+
+---
 
 ### LangChain Integration
 
