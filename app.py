@@ -17,17 +17,29 @@ from i18n import t
 from social_architect import buscar_estrategia_inversa
 from visualizations import generate_social_network_viz
 from simulator import (
+    BEYONDSIGHT_EMPIRICAL_MASTER,
+    BEYONDSIGHT_RUNTIME_PARAMS,
     DEFAULT_CONFIG,
+    DEFAULT_PAYOFF_MATRIX,
     DESCRIPCIONES_REGLAS,
     NOMBRES_REGLAS,
     PROVEEDORES,
     RANGOS_DISPONIBLES,
+    apply_empirical_profile,
     get_graph_metrics,
     iter_simulation_ticks,
     resumen_historial,
     simular,
     simular_multiples,
+    simular_multiples_dask,
 )
+
+# EMPIRICAL INTEGRATION — importar indicadores de base empírica si disponibles
+try:
+    from empirical_config import BEYONDSIGHT_RUNTIME_PARAMS as _EMPIRICAL_RUNTIME
+    _EMPIRICAL_VALIDATION_FLAGS = _EMPIRICAL_RUNTIME.get("validation_flags", [])
+except ImportError:
+    _EMPIRICAL_VALIDATION_FLAGS = []
 
 # Load environment variables from .env
 load_dotenv()
@@ -65,6 +77,26 @@ def _mostrar_error_seguro(e: Exception, contexto: str) -> None:
         f"⚠️ Error en {contexto}: {type(e).__name__}. "
         f"Revisa los logs del servidor para más detalles."
     )
+
+# ------------------------------------------------------------
+# GAME THEORY PRESETS (module-level constant)
+# Payoff values are in the [-1, 1] bipolar range.
+# ------------------------------------------------------------
+# Keys are positional indices matching the i18n preset_options list:
+#   0 → Custom / Personalizado
+#   1 → Prisoner's Dilemma / Dilema del Prisionero
+#   2 → Stag Hunt / Caza del Ciervo
+#   3 → Coordination / Coordinación
+_STRATEGIC_PRESETS: list[dict] = [
+    # 0 — Custom: neutral starting point
+    {"cc": 1.0, "cd": -1.0, "dc":  1.0, "dd": -1.0},
+    # 1 — Prisoner's Dilemma: defection tempts but mutual defection is costly
+    {"cc": 1.0, "cd": -1.0, "dc":  1.0, "dd": -0.5},
+    # 2 — Stag Hunt: mutual cooperation pays most; solo defection yields zero
+    {"cc": 1.0, "cd": -1.0, "dc":  0.0, "dd":  0.0},
+    # 3 — Coordination: matching strategies rewarded, mismatches punished
+    {"cc": 1.0, "cd": -1.0, "dc": -1.0, "dd":  1.0},
+]
 
 # ------------------------------------------------------------
 # PÁGINA
@@ -171,13 +203,22 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# EMPIRICAL INTEGRATION — mostrar aviso si hay parámetros sin datos empíricos
+if _EMPIRICAL_VALIDATION_FLAGS:
+    n_pending = len(_EMPIRICAL_VALIDATION_FLAGS)
+    st.warning(
+        f"⚠️ **{n_pending} parámetro{'s' if n_pending != 1 else ''} sin datos empíricos** "
+        f"— usando lógica del motor",
+        icon="🔬",
+    )
+
 # ------------------------------------------------------------
 # SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
 
     st.markdown("### BeyondSight Enterprise")
-    st.markdown("Gratis para uso académico (AGPL-3.0). Para agencias, corporativos y consultoría privada, se requiere Licencia Comercial.")
+    st.markdown("Gratis para uso no comercial (Prosperity Public License 3.0). Para agencias, corporativos y consultoría privada, se requiere Licencia Comercial.")
     st.link_button("💼 Adquirir Licencia Comercial", "mailto:BeyondSight@ejemplo.com")
     st.link_button("🤝 Contratar Consultoría", "mailto:BeyondSight@ejemplo.com")
     st.markdown("---")
@@ -240,6 +281,9 @@ with st.sidebar:
         if mc.strip():
             modelo = mc.strip()
 
+    usar_langchain = st.toggle("⛓️ Usar LangChain", value=False,
+        help="Usa LangChain en lugar de llamadas HTTP directas al LLM. Requiere langchain instalado.")
+
     st.markdown("---")
 
     # ── INITIAL STATE ──────────────────────────────────────
@@ -283,9 +327,73 @@ with st.sidebar:
     )
 
     homofilia_tasa = st.slider(
-        t("homofily_rate", lang),
+        t("homophily_rate", lang),
         0.0, 0.2, 0.05, 0.01
     )
+
+    st.markdown("---")
+    st.markdown(t("egt_section", lang))
+
+    activar_replicador = st.toggle(t("activate_replicator", lang), value=False)
+    payoff_matrix_cfg: list = list(DEFAULT_PAYOFF_MATRIX)
+    dt_cfg: float = 0.1
+    if activar_replicador:
+        payoff_raw = st.text_area(
+            t("payoff_matrix", lang),
+            value=json.dumps(DEFAULT_PAYOFF_MATRIX),
+            height=80,
+            help="Introduce una matriz 2×2 en formato JSON. Ejemplo: [[1,0],[0,1]]",
+        )
+        try:
+            parsed = json.loads(payoff_raw)
+            if (
+                isinstance(parsed, list)
+                and len(parsed) == 2
+                and all(isinstance(row, list) and len(row) == 2 for row in parsed)
+            ):
+                payoff_matrix_cfg = parsed
+            else:
+                st.error("La matriz debe ser 2×2. Usando identidad como fallback.")
+        except json.JSONDecodeError:
+            st.error("JSON inválido para la matriz de pagos. Usando identidad como fallback.")
+        dt_cfg = st.slider(
+            t("dt_step", lang),
+            min_value=0.01, max_value=1.0, value=0.1, step=0.01,
+        )
+
+    st.markdown("---")
+    st.markdown(t("strategic_section", lang))
+    st.caption(t("strategic_help", lang))
+
+    activar_strategic = st.toggle(t("activate_strategic", lang), value=False)
+    strategic_cfg_ui: dict = {"enabled": False}
+    if activar_strategic:
+        # Game preset selector
+        preset_options = t("strategic_preset_options", lang)
+        preset_key = st.selectbox(t("strategic_preset", lang), preset_options)
+
+        # Resolve preset values from module-level constant via index
+        preset_idx = preset_options.index(preset_key)
+        preset_vals = _STRATEGIC_PRESETS[preset_idx]
+
+        col_cc, col_cd = st.columns(2)
+        col_dc, col_dd = st.columns(2)
+        with col_cc:
+            cc_val = st.slider(t("strategic_cc", lang), -1.0, 1.0, preset_vals["cc"], 0.1)
+        with col_cd:
+            cd_val = st.slider(t("strategic_cd", lang), -1.0, 1.0, preset_vals["cd"], 0.1)
+        with col_dc:
+            dc_val = st.slider(t("strategic_dc", lang), -1.0, 1.0, preset_vals["dc"], 0.1)
+        with col_dd:
+            dd_val = st.slider(t("strategic_dd", lang), -1.0, 1.0, preset_vals["dd"], 0.1)
+
+        omega = st.slider(t("strategic_weight", lang), 0.0, 1.0, 0.3, 0.05)
+
+        strategic_cfg_ui = {
+            "enabled": True,
+            "payoff_matrix": {"cc": cc_val, "cd": cd_val, "dc": dc_val, "dd": dd_val},
+            "strategic_weight": omega,
+        }
 
     st.markdown("---")
     st.markdown(t("simulation_settings", lang))
@@ -298,8 +406,83 @@ with st.sidebar:
     st.markdown(t("probabilistic_mode", lang))
     modo_prob = st.toggle(t("activate_multi_sim", lang), value=False)
     n_sims = 50
+    usar_dask = False
     if modo_prob:
         n_sims = st.slider(t("num_simulations", lang), 10, 200, 50, 10)
+        usar_dask = st.toggle("⚡ Paralelizar con Dask", value=False,
+            help="Usa Dask para paralelizar las simulaciones. Acelera el cálculo en máquinas con múltiples núcleos.")
+
+    st.markdown("---")
+    st.markdown("### 🌐 Datos de Redes Sociales")
+    activar_social = st.toggle("Importar datos reales de RRSS", value=False)
+    social_opinions = None
+
+    if activar_social:
+        red_social = st.radio("Red social", ["Twitter/X", "Reddit"], horizontal=True)
+        query_social = st.text_input("Búsqueda / tema", placeholder="ej. climate change, inteligencia artificial")
+
+        if red_social == "Twitter/X":
+            bearer_token = st.text_input("Bearer Token", type="password", key="tw_bearer")
+            if st.button("🐦 Obtener tweets") and query_social and bearer_token:
+                try:
+                    from social_connectors import TwitterConnector
+                    conn = TwitterConnector(bearer_token=bearer_token)
+                    result = conn.fetch_opinions(query_social, max_results=100,
+                                                 range_type="bipolar" if es_bipolar else "unipolar")
+                    social_opinions = result
+                    st.success(f"✅ {result['n_tweets']} tweets analizados | opinión media: {result['mean_opinion']:+.3f}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+        else:  # Reddit
+            reddit_client_id = st.text_input("Client ID", type="password", key="reddit_cid")
+            reddit_secret    = st.text_input("Client Secret", type="password", key="reddit_sec")
+            subreddit_name   = st.text_input("Subreddit", placeholder="ej. politics, worldnews")
+            if st.button("🤖 Obtener posts") and query_social and reddit_client_id and reddit_secret and subreddit_name:
+                try:
+                    from social_connectors import RedditConnector
+                    conn = RedditConnector(client_id=reddit_client_id, client_secret=reddit_secret)
+                    result = conn.fetch_opinions(subreddit_name, query_social, limit=100,
+                                                  range_type="bipolar" if es_bipolar else "unipolar")
+                    social_opinions = result
+                    st.success(f"✅ {result['n_posts']} posts de r/{subreddit_name} | opinión media: {result['mean_opinion']:+.3f}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        if social_opinions and len(social_opinions.get("opinions", [])) > 0:
+            social_mean = float(social_opinions["mean_opinion"])
+            st.caption(f"📊 σ={social_opinions['std_opinion']:.3f} | Opinión media de RRSS: {social_mean:+.3f}")
+            usar_opinion_social = st.toggle(
+                f"Usar {social_mean:+.3f} como opinión inicial (reemplaza el slider)",
+                value=True,
+                key="usar_opinion_social_toggle",
+            )
+            if usar_opinion_social:
+                opinion0 = social_mean
+
+    st.markdown("---")
+    st.markdown("#### 🧪 Perfil Empírico" if lang == "es" else "#### 🧪 Empirical Profile")
+    activar_empirico = st.toggle(
+        "Aplicar calibración empírica (v{})".format(BEYONDSIGHT_EMPIRICAL_MASTER["meta"]["version"])
+        if lang == "es"
+        else "Apply empirical calibration (v{})".format(BEYONDSIGHT_EMPIRICAL_MASTER["meta"]["version"]),
+        value=False,
+        help=(
+            "Aplica los índices de calibración empírica consolidados (redes, temporales, "
+            "teoría de juegos) normalizados al rango [-1, 1]."
+            if lang == "es"
+            else "Applies consolidated empirical calibration indices (network dynamics, "
+            "temporal effects, game theory) normalised to [-1, 1]."
+        ),
+    )
+    if activar_empirico:
+        rp = BEYONDSIGHT_RUNTIME_PARAMS
+        st.caption(
+            f"λ social={rp['social_influence_lambda']} · "
+            f"T caos={rp['temperature']} · "
+            f"atractor={rp['attractor_depth']} · "
+            f"payoff cc={rp['payoff_coordination']} · "
+            f"payoff dd={rp['payoff_defection']}"
+        )
 
     st.markdown("---")
     correr = st.button(t("run_simulation", lang))
@@ -327,7 +510,16 @@ with tab1:
             "sesgo_confirmacion": sesgo_conf,
             "hk_epsilon":         hk_epsilon,
             "homofilia_tasa":     homofilia_tasa,
+            "usar_langchain":     usar_langchain,
         }
+        if activar_replicador:
+            config_run["modelo_matematico"] = "Replicator"
+            config_run["payoff_matrix"]     = payoff_matrix_cfg
+            config_run["dt"]                = dt_cfg
+        if activar_strategic:
+            config_run["strategic"] = strategic_cfg_ui
+        if activar_empirico:
+            config_run = apply_empirical_profile(config_run)
 
         estado_inicial = {
             "opinion":          opinion0,
@@ -369,10 +561,16 @@ with tab1:
 
             resultado_prob = None
             if modo_prob:
-                resultado_prob = simular_multiples(
-                    estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
-                    config=config_run, n_simulaciones=n_sims,
-                )
+                if usar_dask:
+                    resultado_prob = simular_multiples_dask(
+                        estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
+                        config=config_run, n_simulaciones=n_sims,
+                    )
+                else:
+                    resultado_prob = simular_multiples(
+                        estado_inicial, pasos=pasos, cada_n_pasos=cada_n,
+                        config=config_run, n_simulaciones=n_sims,
+                    )
 
         stats     = resumen_historial(historial, config_run)
         opiniones = [h["opinion"] for h in historial]
@@ -402,11 +600,29 @@ with tab1:
             badges.append(f'<span class="badge" style="background:#1a2535;color:#c3a6ff;border:1px solid #c3a6ff">narrativa B={narrativa_b:+.2f}</span>')
         if hk_epsilon != 0.3:
             badges.append(f'<span class="badge" style="background:#1a2535;color:#bae67e;border:1px solid #bae67e">HK ε={hk_epsilon:.2f}</span>')
+        if activar_social and social_opinions and len(social_opinions.get("opinions", [])) > 0:
+            src = social_opinions.get("query", "RRSS")
+            badges.append(f'<span class="badge" style="background:#1a2535;color:#5ccfe6;border:1px solid #5ccfe6">📡 RRSS: {src[:20]}</span>')
         badges.append(
             f'<span class="badge" style="background:#0d1520;color:{color_rango};border:1px solid {color_rango}">'
             f'rango {nombre_rango.split("—")[0].strip()} · neutro={neutro}</span>'
         )
         st.markdown(" ".join(badges), unsafe_allow_html=True)
+
+        # ── EWS / TDA INDICATORS ───────────────────────────────
+        ews_final = historial[-1].get("ews", {})
+        ews_flags_final = ews_final.get("flags", {})
+        if any(ews_flags_final.values()):
+            st.warning(
+                t("ews_warning", lang,
+                  hv=ews_flags_final.get("high_variance", False),
+                  ha=ews_flags_final.get("high_autocorr", False),
+                  hs=ews_flags_final.get("high_skewness", False)),
+            )
+
+        tda_final = historial[-1].get("tda_change", False)
+        if tda_final:
+            st.error(t("tda_change", lang))
 
         # ── MÉTRICAS ───────────────────────────────────────────
         st.markdown(t("results", lang))
@@ -473,7 +689,7 @@ with tab1:
             )
             
             st.markdown("### Topología de Red Social (Física)")
-            fig_net = generate_social_network_viz(opiniones[-1], estado_final["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
+            fig_net = generate_social_network_viz(opiniones[-1], historial[-1]["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
             st.plotly_chart(fig_net, use_container_width=True)
             
             share_url = "https://github.com/Adlgr87/BeyondSight"
@@ -546,6 +762,12 @@ with tab1:
                         'title="LLM remoto no respondió — heurística de fallback">'
                         '⚠ fallback</span> │ '
                     )
+                if "_nash_sigma_a" in h:
+                    extras += f" | Nash σ_A={h['_nash_sigma_a']:.2f}"
+                if "_bayes_uncertainty" in h:
+                    extras += f" | BN uncertainty={h['_bayes_uncertainty']:.4f}"
+                if "_sir_I" in h:
+                    extras += f" | SIR I={h['_sir_I']:.3f} R={h['_sir_R']:.3f}"
                 st.markdown(
                     f'<div class="log-entry">{fb_prefix}t={h.get("_paso","?"):3} │ '
                     f'<b>{h.get("_regla_nombre","?")}</b> │ '
@@ -662,6 +884,8 @@ with tab2:
         "Ej: 'Quiero despolarizar una red dividida en dos bandos radicales y lograr un consenso moderado.'"
     )
     objetivo = st.text_area("✏️ Describe tu objetivo:", placeholder=placeholder_objetivo, height=100)
+    usar_langchain_arq = st.toggle("⛓️ Arquitecto con LangChain", value=False,
+        help="Usa LangChain chains en lugar de HTTP directo")
 
     if st.button("⚡ Generar Estrategia Maestra"):
         if objetivo:
@@ -682,6 +906,12 @@ with tab2:
                 # Pasar tamaño del grafo para el cálculo de proporciones target_nodes
                 "_n_nodos": grafo_org.number_of_nodes() if grafo_org else 20,
             }
+            if activar_replicador:
+                config_run["modelo_matematico"] = "Replicator"
+                config_run["payoff_matrix"]     = payoff_matrix_cfg
+                config_run["dt"]                = dt_cfg
+            if activar_strategic:
+                config_run["strategic"] = strategic_cfg_ui
             estado_inicial = {
                 "opinion": opinion0,
                 "propaganda": propaganda,
@@ -717,6 +947,7 @@ with tab2:
                     config=config_run,
                     modo_simulacion=modo_simulacion,
                     metricas_red=metricas_red,
+                    use_langchain=usar_langchain_arq,
                 )
                 st.session_state["estr_inversa"] = {
                     "estrategia": estrategia,
@@ -746,7 +977,7 @@ with tab2:
                 submit = st.form_submit_button("🔓 Desbloquear Reporte")
                 if submit and email:
                     with open("leads.csv", "a") as f:
-                        f.write(email + "\\n")
+                        f.write(email + "\n")
                     st.session_state["lead_captured"] = True
                     st.rerun()
         else:
@@ -790,14 +1021,14 @@ with tab2:
             st.json(estrategia_display)
 
             report_text = (
-                f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\\n"
-                f"Modo: {modo_inv.upper()}\\n"
-                f"Objetivo: {st.session_state['objetivo_inverso']}\\n\\n"
-                f"{data_inv['narrativa']}\\n\\n"
-                "MATRIZ:\\n" + json.dumps(data_inv["estrategia"], indent=2) + "\\n\\n"
-                + "-" * 50 + "\\n"
-                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\\n"
-                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\\n"
+                f"REPORTE EJECUTIVO - ARQUITECTO SOCIAL\n"
+                f"Modo: {modo_inv.upper()}\n"
+                f"Objetivo: {st.session_state['objetivo_inverso']}\n\n"
+                f"{data_inv['narrativa']}\n\n"
+                "MATRIZ:\n" + json.dumps(data_inv["estrategia"], indent=2) + "\n\n"
+                + "-" * 50 + "\n"
+                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\n"
+                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\n"
                 + "-" * 50
             )
             st.download_button(
