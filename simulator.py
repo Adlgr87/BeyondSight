@@ -43,6 +43,9 @@ from scipy import stats
 from scipy.integrate import solve_ivp
 from scipy.special import erf
 
+from schemas import GamePayoff
+from utility_logic import calculate_strategic_force
+
 try:
     from ripser import ripser as ripser_compute
     from persim import wasserstein as wasserstein_dist
@@ -171,6 +174,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # Homofilia dinámica
     # Velocidad con la que los pesos de grupo se actualizan según similitud de opinión
     "homofilia_tasa": 0.05,
+    # ── Capa Estratégica (Teoría de Juegos) ───────────────
+    # enabled  : activa la fuerza estratégica sobre cada paso
+    # payoff   : matriz 2×2 Cooperar/Defectar en rango [-1, 1]
+    #   cc =  1.0 → ambos cooperan (consenso)
+    #   cd = -1.0 → yo coopero, el otro traiciona (ingenuo)
+    #   dc =  1.0 → yo traiciono, el otro coopera (tentación)
+    #   dd = -1.0 → ambos traicionan (caos)
+    # strategic_weight (ω): cuánto pesa la fuerza estratégica [0.0–1.0]
+    "strategic": {
+        "enabled": False,
+        "payoff_matrix": {"cc": 1.0, "cd": -1.0, "dc": 1.0, "dd": -1.0},
+        "strategic_weight": 0.3,
+    },
 }
 
 # Default 2×2 payoff matrix for the Replicator (EGT) rule.
@@ -198,6 +214,11 @@ _RANGOS_PARAMS: dict[str, dict[str, tuple]] = {
 # Sliding-window size used by EWS metrics and TDA detection
 HISTORY_BUFFER_SIZE: int = 10
 
+# Fraction of the opinion-range amplitude beyond which groups are considered
+# highly polarised when the strategic layer is active (used by the heuristic
+# selector to prefer the EGT Replicator rule).
+_STRATEGIC_POLARIZATION_THRESHOLD: float = 0.5
+
 
 # ============================================================
 # HELPERS DE RANGO
@@ -221,6 +242,55 @@ def _es_bipolar(cfg: dict) -> bool:
 def _amplitud(cfg: dict) -> float:
     r = _get_rango(cfg)
     return r["max"] - r["min"]
+
+
+# ============================================================
+# MECANISMO: CAPA ESTRATÉGICA (Teoría de Juegos)
+# Transversal — se suma al gradiente físico en cada paso.
+# El threshold de "vecinos cerca del neutro" usa 0.2 en rango [-1, 1]
+# (|avg| < 0.2) y la misma magnitud absoluta para [0, 1].
+# ============================================================
+
+def _calcular_fuerza_estrategica(estado: dict, cfg: dict) -> float:
+    """
+    Applies the Game Theory strategic force to the current state.
+
+    When the strategic layer is enabled in cfg["strategic"], this
+    function calls calculate_strategic_force() with the agent's
+    neighbours (groups A and B) and scales the result to the same
+    order of magnitude as calcular_efecto_grupos().
+
+    Args:
+        estado: Current simulation state.
+        cfg: Global configuration, must contain "strategic" sub-dict.
+
+    Returns:
+        Signed float delta to add to the opinion update, or 0.0 when
+        the layer is disabled.
+    """
+    strategic_cfg = cfg.get("strategic", {})
+    if not strategic_cfg.get("enabled", False):
+        return 0.0
+
+    neutro = _neutro(cfg)
+    payoff = GamePayoff(**strategic_cfg.get("payoff_matrix", {}))
+    w = float(np.clip(strategic_cfg.get("strategic_weight", 0.3), 0.0, 1.0))
+
+    neighbors = [
+        estado.get("opinion_grupo_a", neutro),
+        estado.get("opinion_grupo_b", neutro),
+    ]
+
+    # proximity_threshold: 0.2 absolute — correct for [-1,1] (neutral=0)
+    # and reasonable for [0,1] (neutral=0.5, checks |avg-0.5|<0.2)
+    force = calculate_strategic_force(
+        estado["opinion"], neighbors, payoff,
+        neutral=neutro, proximity_threshold=0.2,
+    )
+
+    # Scale to match other per-step forces (efecto_vecinos_peso ≈ 0.05)
+    scale = cfg.get("efecto_vecinos_peso", 0.05)
+    return w * force * scale
 
 
 # ============================================================
@@ -1153,6 +1223,14 @@ def llamar_llm_heuristico(estado: dict, escenario: str,
                 "params": {"competencia": cfg.get("competencia_peso", 0.4)},
                 "razon": "contagio_competitivo: narrativa B activa y relevante"}
 
+    # Capa estratégica activa + alta polarización → Replicador EGT
+    # Los agentes ya están bajo presión de juego; el modelo evolutivo
+    # captura mejor la dinámica de estrategias enfrentadas.
+    if cfg.get("strategic", {}).get("enabled", False) and distancia_grupos > _STRATEGIC_POLARIZATION_THRESHOLD * amp:
+        return {"regla": 9,
+                "params": {"dt": 0.1},
+                "razon": "replicador: capa estratégica activa con alta polarización entre grupos"}
+
     # Grupos muy distantes → HK (solo escucha a similares)
     if distancia_grupos > 0.6 * amp:
         return {"regla": 5,
@@ -1313,11 +1391,12 @@ def simular(
         tendencia_base = 0.92 * estado["opinion"] + 0.08 * estado["propaganda"]
         opinion_blend  = alpha_blend * opinion_regla + (1.0 - alpha_blend) * tendencia_base
 
-        # Efecto de grupos + ruido adaptativo
+        # Efecto de grupos + fuerza estratégica + ruido adaptativo
         ruido_std     = cfg["ruido_base"] + cfg["ruido_desconfianza"] * (1.0 - estado["confianza"])
         opinion_final = _clip(
             opinion_blend
             + calcular_efecto_grupos(estado, cfg)
+            + _calcular_fuerza_estrategica(estado, cfg)
             + np.random.normal(0.0, ruido_std),
             cfg
         )
@@ -1667,6 +1746,7 @@ def run_with_schedule(
             opinion_final = _clip(
                 opinion_blend
                 + calcular_efecto_grupos(estado, cfg)
+                + _calcular_fuerza_estrategica(estado, cfg)
                 + np.random.normal(0.0, ruido_std),
                 cfg,
             )
