@@ -1,8 +1,11 @@
 """
 Tests for extended models: regla_nash, regla_bayesiana, regla_sir.
 
-These rules are the empirical-database-relevant advanced models (rules 10-12)
-that capture sophisticated social dynamics for BeyondSight metrics.
+These are rules 10-12 out of the total rule set (0-12). Rules 0-9 are tested
+in tests/test_simulator_rules.py.
+
+These rules are the empirical-database-relevant advanced models that capture
+sophisticated social dynamics for BeyondSight metrics.
 """
 import pytest
 import numpy as np
