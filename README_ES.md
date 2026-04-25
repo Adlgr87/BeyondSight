@@ -58,17 +58,34 @@ Estos son solo inicios—mezcla parámetros, rangos y LLMs para explorar. Beyond
 
 ## Fundamentos Teóricos e Investigación
 
-El proyecto se inspira en modelos fundamentales de dinámica de opinión y en investigación de vanguardia:
+El proyecto se inspira en modelos fundamentales de dinámica de opinión y en investigación de vanguardia.
+
+### Modelos Base (Dinámica de Opinión)
 
 - **Modelos de DeGroot y Friedkin-Johnsen:** Implementación base para la evolución de opiniones en redes sociales, considerando la influencia de vecinos y la resistencia al cambio (prejuicios).
 - **Hegselmann-Krause (2002) - Confianza Acotada:** El agente solo interactúa con grupos cuya opinión se encuentra dentro de un radio `ε`, propiciando polarización natural y formación de clusters.
 - **Contagio Competitivo (Beutel et al., 2012):** Modela la propagación de dos narrativas rivales compitiendo simultáneamente en el sistema.
 - **Umbral Heterogéneo (Granovetter, 1978):** Uso de una distribución normal de umbrales en la población en lugar de uno estático, propiciando fenómenos de cascadas sociales rápidas.
 - **Redes Co-evolutivas y Homofilia (Axelrod, 1997):** La intensidad de la influencia varía según la similitud de las opiniones, lo que genera cámaras de eco (echo chambers) endógenas.
+- **Ecuación Replicadora — Teoría de Juegos Evolutiva (Taylor & Jonker, 1978):** Las frecuencias de estrategia evolucionan según el pago relativo mediante la ODE replicadora integrada con RK45.
 - **Sesgo de Confirmación:** Un mecanismo transversal cognitivo que atenúa sistemáticamente el peso de la información contraria a la creencia actual del agente.
 - **Dinámica de Energía de Langevin:** Ecuaciones diferenciales estocásticas de inspiración física donde los agentes se mueven a través de un paisaje de energía social configurable con atractores y repulsores — el núcleo de simulación más reciente de BeyondSight.
-- **Conexión Académica:** El enfoque de BeyondSight resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo agentes inteligentes forman opiniones en redes.
-- **Arquitectura Híbrida:** A diferencia de simulaciones puramente numéricas, BeyondSight utiliza un LLM (como Llama 3) para analizar la trayectoria histórica y decidir qué régimen matemático es sociológicamente apropiado.
+
+### Modelos Extendidos
+
+Tres reglas de simulación adicionales (reglas 10–12 en `extended_models.py`) amplían el vocabulario matemático del Arquitecto Social y del simulador tradicional:
+
+- **Equilibrio de Nash — Teoría de Juegos (Nash, 1950):** Regla 10. Modela equilibrios de estrategias mixtas estables entre grupos sociales. En cada paso, se construye una matriz de pagos 2×2 a partir del alineamiento de opinión con cada grupo, y la estrategia mixta de Nash determina los pesos de membresía. Calculado con `nashpy` (enumeración de soporte) con fallback analítico para juegos 2×2.
+
+- **Red Bayesiana de Opinión (Pearl, 1988):** Regla 11. Una red bayesiana discreta (construida con `pgmpy`) con nodos `Propaganda → Opinion ← Confianza, PresionSocial`. La evidencia observada se discretiza en 3 estados; la Eliminación de Variables devuelve la distribución posterior de opinión. La media posterior se mapea de vuelta al espacio continuo de opinión. Hace fallback a un modelo conjugado Beta-Binomial cuando `pgmpy` no está disponible.
+
+- **Contagio Epidemiológico SIR (Kermack & McKendrick, 1927):** Regla 12. Trata la adopción de opiniones como una epidemia: Susceptibles (pueden ser influenciados), Influenciados (adoptaron la opinión), Resistentes (inmunes a cambios adicionales). La propaganda amplifica la tasa de contacto efectiva `β`. El sistema ODE del SIR se integra con `scipy.integrate.solve_ivp` (RK45) en cada paso.
+
+### Arquitectura Híbrida
+
+A diferencia de simulaciones puramente numéricas, BeyondSight utiliza un LLM (como Llama 3) para analizar la trayectoria histórica y decidir qué régimen matemático es sociológicamente apropiado. El selector heurístico de fallback enruta inteligentemente entre las 13 reglas disponibles (0–12) según las condiciones del estado.
+
+**Conexión Académica:** El enfoque de BeyondSight resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo agentes inteligentes forman opiniones en redes.
 
 ## Motor de Paisaje Energético
 
@@ -136,6 +153,14 @@ El Arquitecto Social devuelve una `StrategyMatrix` validada — un calendario de
 > **Ejemplo de objetivo →** *"Estabilizar la aprobación de los empleados durante una reestructuración organizacional."*
 > **Salida →** Un plan de 3 fases: primero cohesión basada en homofilia entre líderes de equipo, luego un régimen de memoria para estabilizar, y finalmente un impulso de comunicación top-down focalizado — con una narrativa de RRHH completa que explica cada fase en lenguaje consultivo.
 
+### Integración con LangChain
+
+Cuando el toggle **⛓️ Usar LangChain** está activo en la barra lateral, tanto el Arquitecto Social como el Arquitecto Programático enrutan sus llamadas LLM a través de cadenas LangChain tipadas (`langchain_workflows.py`) en lugar de peticiones HTTP directas. Beneficios:
+
+- **Parseo tipado de salida** — `JsonOutputParser` detecta JSON malformado antes de que llegue al simulador.
+- **Agnóstico al proveedor** — soporta `groq` (vía `langchain-groq`), `openai`, `openrouter` y `ollama` a través de la misma interfaz de cadena.
+- **Cadenas componibles** — `strategy_chain`, `narrative_chain` y `landscape_chain` pueden extenderse con memoria, herramientas o ejecutores de agentes en el futuro.
+
 ## Instalación
 
 ```bash
@@ -152,31 +177,68 @@ streamlit run app.py
 ### Ejecución en Hugging Face Spaces
 Este repositorio está listo para ser desplegado como un **Hugging Face Space**. Simplemente conecta este repo a un nuevo Space de tipo `Streamlit`.
 
+## Integración con Redes Sociales
+
+BeyondSight puede inicializar simulaciones con **datos de opinión reales** obtenidos en vivo desde Twitter/X o Reddit. Configura las credenciales en la barra lateral bajo **🌐 Datos de Redes Sociales**.
+
+### Twitter / X
+
+Requiere un **Bearer Token** (Portal de Desarrolladores de Twitter → Proyecto → App → Keys & Tokens).
+
+El conector consulta la [API de Búsqueda Reciente de Twitter v2](https://developer.twitter.com/en/docs/twitter-api/tweets/search/introduction), aplica análisis de sentimiento por palabras clave, y devuelve la opinión media ponderada — lista para usarse como estado inicial en cualquier simulación.
+
+### Reddit
+
+Requiere una **aplicación de tipo script** registrada en [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps).
+
+El conector usa `praw` para buscar en un subreddit, puntúa el sentimiento de cada publicación, pesa por el score de Reddit y devuelve una distribución de opiniones de la comunidad.
+
+Ambos conectores funcionan con rangos **bipolar** `[-1, 1]` y **unipolar** `[0, 1]`. Puedes configurar las credenciales mediante variables de entorno:
+
+```env
+TWITTER_BEARER_TOKEN=xxx
+REDDIT_CLIENT_ID=xxx
+REDDIT_CLIENT_SECRET=xxx
+```
+
+## Optimización de Rendimiento
+
+### Numba — Motor Langevin Acelerado con JIT
+
+El `SocialEnergyEngine` en `energy_engine.py` usa **Numba** para compilar en JIT el bucle interno del paso Langevin vía `@njit`. En la primera llamada, el kernel se compila una sola vez; todas las llamadas posteriores son de velocidad nativa (típicamente 5–20× más rápido que NumPy puro para muchos agentes). Numba hace fallback elegante con un decorador no-op cuando no está instalado.
+
+### Dask — Simulaciones Múltiples en Paralelo
+
+El toggle **⚡ Paralelizar con Dask** activa `simular_multiples_dask()`, que envuelve cada una de las N simulaciones en una tarea `dask.delayed` y las ejecuta de forma concurrente en todos los núcleos CPU disponibles. Para N=100 simulaciones, esto típicamente proporciona una aceleración de 3–8× en máquinas multi-núcleo. Hace fallback a `simular_multiples()` secuencial cuando Dask no está disponible.
+
 ## Estructura del Proyecto
 
 ```
 BeyondSight/
-├── tests/                     # Pruebas unitarias e integración
-│   ├── test_energy_core.py    # Suite de pruebas del motor energético (42 tests)
-│   ├── test_simulator.py      # Pruebas del núcleo simulador
+├── tests/                        # Pruebas unitarias e integración
+│   ├── test_energy_core.py       # Suite de pruebas del motor energético (42 tests)
+│   ├── test_simulator.py         # Pruebas del núcleo simulador
 │   ├── test_social_architect.py
 │   └── test_visualizations.py
-├── docs/                      # Fuentes de documentación MkDocs
+├── docs/                         # Fuentes de documentación MkDocs
 ├── .gitignore
-├── app.py                     # Interfaz Streamlit
-├── cache_manager.py           # Caché RAM + SQLite para paisajes sociales
-├── energy_engine.py           # Motor de dinámica de Langevin (SocialEnergyEngine)
-├── energy_runner.py           # Orquestador de simulaciones Langevin
-├── energy_schemas.py          # Esquemas Pydantic v2 para EnergyConfig
-├── i18n.py                    # Ayudantes de internacionalización
-├── programmatic_architect.py  # Arquitecto Programático (arquetipos + caché + LLM)
-├── README.md                  # Documentación (inglés)
-├── README_ES.md               # Documentación (español)
-├── requirements.txt           # Dependencias
-├── schemas.py                 # Esquemas Pydantic para StrategyMatrix
-├── simulator.py               # Núcleo del simulador y lógica LLM
-├── social_architect.py        # Agente de ingeniería inversa Arquitecto Social
-└── visualizations.py          # Ayudantes de visualización de red
+├── app.py                        # Interfaz Streamlit
+├── cache_manager.py              # Caché RAM + SQLite para paisajes sociales
+├── energy_engine.py              # Motor de dinámica de Langevin (acelerado con Numba)
+├── energy_runner.py              # Orquestador de simulaciones Langevin
+├── energy_schemas.py             # Esquemas Pydantic v2 para EnergyConfig
+├── extended_models.py            # Reglas extendidas: Nash (10), Red Bayesiana (11), SIR (12)
+├── i18n.py                       # Ayudantes de internacionalización
+├── langchain_workflows.py        # Cadenas LangChain para Arquitectos Social y Programático
+├── programmatic_architect.py     # Arquitecto Programático (arquetipos + caché + LLM)
+├── README.md                     # Documentación (inglés)
+├── README_ES.md                  # Documentación (español)
+├── requirements.txt              # Dependencias
+├── schemas.py                    # Esquemas Pydantic para StrategyMatrix
+├── simulator.py                  # Núcleo: 13 reglas, paralelo Dask, lógica LLM
+├── social_architect.py           # Agente de ingeniería inversa Arquitecto Social
+├── social_connectors.py          # Conectores de API Twitter/X y Reddit
+└── visualizations.py             # Ayudantes de visualización de red
 ```
 
 ## Licencia Ética
