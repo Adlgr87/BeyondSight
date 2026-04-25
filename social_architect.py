@@ -193,6 +193,7 @@ def generar_narrativa_final(
     objetivo_usuario: str,
     modo_simulacion: str = "macro",
     metricas_red: str = "",
+    use_langchain: bool = False,
 ) -> str:
     """
     Traduce los parámetros matemáticos a narrativa sociológica o corporativa.
@@ -202,10 +203,28 @@ def generar_narrativa_final(
         objetivo_usuario: Objetivo original del usuario.
         modo_simulacion: 'macro' o 'corporativo'.
         metricas_red: Resumen de métricas del grafo (para modo corporativo).
+        use_langchain: Si True, intenta usar LangChainSocialArchitect.
 
     Returns:
         Reporte narrativo en texto.
     """
+    if use_langchain:
+        try:
+            from langchain_workflows import build_llm, LangChainSocialArchitect, LANGCHAIN_AVAILABLE
+            if LANGCHAIN_AVAILABLE:
+                llm = build_llm(
+                    os.getenv("LLM_PROVIDER", "groq"),
+                    os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY", ""),
+                    os.getenv("LLM_MODEL", ""),
+                )
+                if llm is not None:
+                    architect = LangChainSocialArchitect(llm)
+                    return architect.generate_narrative(
+                        estrategia_json, objetivo_usuario, modo_simulacion, metricas_red
+                    )
+        except Exception as lc_err:
+            log.warning(f"[LangChain narrativa] Falló, usando HTTP directo: {lc_err}")
+
     client = setup_client()
 
     if modo_simulacion == "corporativo":
@@ -257,6 +276,7 @@ def buscar_estrategia_inversa(
     config: dict = None,
     modo_simulacion: str = "macro",
     metricas_red: str = "",
+    use_langchain: bool = False,
 ) -> tuple:
     """
     Ejecuta el bucle de ingeniería inversa para encontrar la estrategia
@@ -270,13 +290,74 @@ def buscar_estrategia_inversa(
         modo_simulacion: 'macro' (redes sociales/políticas) o
                          'corporativo' (redes organizacionales).
         metricas_red: Resumen textual de métricas del grafo (Paso 1).
+        use_langchain: Si True, usa LangChainSocialArchitect en lugar de HTTP directo.
 
     Returns:
         Tupla (estrategia_json, narrativa, intentos_usados, historial).
     """
+    cfg = {**DEFAULT_CONFIG, **(config or {})}
+
+    # ── LangChain path ────────────────────────────────────────────────────────
+    if use_langchain:
+        try:
+            from langchain_workflows import build_llm, LangChainSocialArchitect, LANGCHAIN_AVAILABLE
+            if LANGCHAIN_AVAILABLE:
+                provider = cfg.get("proveedor", "groq")
+                api_key  = cfg.get("api_key", "")
+                modelo   = cfg.get("modelo", "")
+                llm = build_llm(provider, api_key, modelo, temperature=0.0)
+                if llm is not None:
+                    architect = LangChainSocialArchitect(llm)
+                    historial_feedback: list = []
+                    mejor_estrategia = {}
+                    mejor_historial = None
+                    mejor_score = -1
+
+                    for intento in range(max_intentos):
+                        try:
+                            estrategia_json = architect.generate_strategy(
+                                estado_inicial, objetivo_usuario,
+                                historial_feedback, modo_simulacion, metricas_red,
+                            )
+                        except Exception as e:
+                            historial_feedback.append(f"Intento {intento+1}: LangChain error: {e}")
+                            continue
+
+                        historial_sim = run_with_schedule(estado_inicial, estrategia_json, config=cfg)
+                        score, feedback = evaluar_resultado(historial_sim, objetivo_usuario, cfg)
+
+                        if score > mejor_score:
+                            mejor_score = score
+                            mejor_estrategia = estrategia_json
+                            mejor_historial = historial_sim
+
+                        if score >= 90:
+                            narrativa = architect.generate_narrative(
+                                estrategia_json, objetivo_usuario,
+                                modo_simulacion, metricas_red,
+                            )
+                            return estrategia_json, narrativa, intento + 1, historial_sim
+                        else:
+                            historial_feedback.append(f"Intento {intento+1}: {feedback}")
+
+                    if mejor_score >= 0:
+                        narrativa = (
+                            architect.generate_narrative(
+                                mejor_estrategia, objetivo_usuario,
+                                modo_simulacion, metricas_red,
+                            )
+                            + "\n\n*(La estrategia es la mejor aproximación).* "
+                        )
+                        return mejor_estrategia, narrativa, max_intentos, mejor_historial
+
+                    return {"interventions": []}, "Error en LangChain.", max_intentos, []
+        except Exception as lc_err:
+            log.warning(f"[LangChain] Falló, usando HTTP directo: {lc_err}")
+            # Fall through to standard HTTP path below
+
+    # ── Standard HTTP path ────────────────────────────────────────────────────
     client = setup_client()
     historial_feedback = []
-    cfg = {**DEFAULT_CONFIG, **(config or {})}
 
     estrategia_json = {}
     mejor_estrategia = {}

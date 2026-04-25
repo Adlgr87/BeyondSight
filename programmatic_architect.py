@@ -98,11 +98,26 @@ ESQUEMA OBLIGATORIO:
 }"""
 
 
-def call_llm(user_goal: str, llm_client=None, provider: str = None, api_key: str = None, model: str = None) -> Optional[dict]:
+def call_llm(user_goal: str, llm_client=None, provider: str = None, api_key: str = None, model: str = None, use_langchain: bool = False) -> Optional[dict]:
     provider = (provider or os.getenv("LLM_PROVIDER", "groq")).lower()
     api_key  = api_key or os.getenv(f"{provider.upper()}_API_KEY") or os.getenv("OPENAI_API_KEY")
     model    = model or os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
 
+    # ── LangChain path ────────────────────────────────────────────────────────
+    if use_langchain:
+        try:
+            from langchain_workflows import build_llm, LangChainProgrammaticArchitect, LANGCHAIN_AVAILABLE
+            if LANGCHAIN_AVAILABLE:
+                llm = build_llm(provider, api_key or "", model, temperature=0.2)
+                if llm is not None:
+                    architect = LangChainProgrammaticArchitect(llm)
+                    result = architect.generate_landscape(user_goal)
+                    if result is not None:
+                        return result
+        except Exception as lc_err:
+            print(f"[Architect] LangChain error: {lc_err}. Falling back to HTTP.")
+
+    # ── Standard HTTP path ────────────────────────────────────────────────────
     base_urls = {
         "groq": "https://api.groq.com/openai/v1",
         "openai": "https://api.openai.com/v1",
