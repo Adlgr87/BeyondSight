@@ -32,8 +32,48 @@ The project is inspired by fundamental opinion dynamics models and cutting-edge 
 - **Heterogeneous Threshold (Granovetter, 1978):** Uses a normal distribution of thresholds in the population instead of a static one, enabling rapid social cascade phenomena.
 - **Co-evolutionary Networks and Homophily (Axelrod, 1997):** Influence intensity varies by opinion similarity, generating endogenous echo chambers.
 - **Confirmation Bias:** A cognitive transversal mechanism that systematically attenuates the weight of information contrary to the agent's current belief.
+- **Langevin Energy Dynamics:** Physics-inspired stochastic differential equations where agents move through a configurable social energy landscape of attractors and repellers — BeyondSight's newest simulation core.
 - **Academic Connection:** BeyondSight's approach resonates with recent research like *"Opinion Consensus Formation Among Networked Large Language Models"* (January 2026), exploring how intelligent agents can reach consensus or polarization.
 - **Hybrid Architecture:** Unlike purely numerical simulations, BeyondSight uses an LLM (like Llama 3) to analyze historical trajectories and decide which mathematical transition regime is sociologically most coherent at each step.
+
+## Energy Landscape Engine
+
+BeyondSight's **Energy Landscape Engine** models social dynamics as a physical system where every agent's opinion evolves according to a Langevin stochastic differential equation:
+
+```
+x_i(t+η) = x_i(t) − η·∇U(x_i) + η·λ·(x̄_neighbors − x_i) + √(2η·T)·ε
+```
+
+| Term | Meaning |
+|---|---|
+| `∇U(x)` | Gradient of the social energy landscape (attractors/repellers) |
+| `λ` (`lambda_social`) | Balance: 0 = pure landscape, 1 = pure social network influence |
+| `T` (`temperature`) | Noise / free will — higher = more chaotic individual behavior |
+| `ε ~ N(0,1)` | Stochastic term (Euler-Maruyama integration) |
+
+**Attractors** model forces of social cohesion (consensus points, factional identities, official positions). **Repellers** model forces of social division (moderation aversion, anti-consensus dynamics). All parameters are validated via Pydantic v2 `EnergyConfig` schemas before any simulation runs.
+
+### Pre-built Social Archetypes
+
+The **Programmatic Architect** (`programmatic_architect.py`) ships with 8 validated archetypes covering the most common sociological scenarios:
+
+| Archetype key | Description |
+|---|---|
+| `polarizacion_extrema` | Two irreconcilable camps. Center is no-man's land. |
+| `polarizacion_moderada` | Two groups with possible dialogue at the center. |
+| `consenso_moderado` | Society gravitates toward agreements. |
+| `consenso_forzado` | Strong institutional pressure toward a single position. |
+| `fragmentacion_3_grupos` | Three coexisting factions that don't merge. |
+| `fragmentacion_4_grupos` | Four tribal communities with high segmentation. |
+| `caos_social` | No clear structure. Each agent acts on its own impulse. |
+| `radicalizacion_progresiva` | Agents start at center and are pulled toward extremes. |
+
+**Resolution pipeline** — for any free-text goal, the engine tries in order:
+1. **Exact archetype match** (instant, no API call)
+2. **RAM cache** (sub-millisecond, same process)
+3. **SQLite cache** (`LandscapeCache`) — persists across Streamlit sessions and container restarts
+4. **LLM one-shot generation** (Groq / OpenAI / OpenRouter / Ollama) with Pydantic validation
+5. **Fallback** to `caos_social` if LLM fails or returns invalid config
 
 ## Social Architect (Reverse Engineering)
 
@@ -82,14 +122,27 @@ This repository is ready to be deployed as a **Hugging Face Space**. Simply conn
 
 ```
 BeyondSight/
-├── archive/           # Historical versions and logs (git ignored)
-├── tests/             # Unit and integration tests
-├── .gitignore         # Ignored files configuration
-├── app.py             # Streamlit interface
-├── README.md          # Documentation (English)
-├── README_ES.md       # Documentation (Spanish)
-├── requirements.txt   # Dependencies
-└── simulator.py       # Simulator core and LLM logic
+├── tests/                     # Unit and integration tests
+│   ├── test_energy_core.py    # Energy engine test suite (42 tests)
+│   ├── test_simulator.py      # Simulator core tests
+│   ├── test_social_architect.py
+│   └── test_visualizations.py
+├── docs/                      # MkDocs documentation sources
+├── .gitignore
+├── app.py                     # Streamlit interface
+├── cache_manager.py           # RAM + SQLite landscape cache
+├── energy_engine.py           # Langevin dynamics engine (SocialEnergyEngine)
+├── energy_runner.py           # Langevin simulation orchestrator
+├── energy_schemas.py          # Pydantic v2 schemas for EnergyConfig
+├── i18n.py                    # Internationalization helpers
+├── programmatic_architect.py  # Programmatic Architect (archetypes + cache + LLM)
+├── README.md                  # Documentation (English)
+├── README_ES.md               # Documentation (Spanish)
+├── requirements.txt           # Dependencies
+├── schemas.py                 # Pydantic schemas for StrategyMatrix
+├── simulator.py               # Simulator core and LLM logic
+├── social_architect.py        # Social Architect inverse-engineering agent
+└── visualizations.py          # Network visualization helpers
 ```
 
 ## Security
