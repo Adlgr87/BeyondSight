@@ -45,6 +45,11 @@ from scipy.special import erf
 
 from schemas import GamePayoff
 from utility_logic import calculate_strategic_force
+from empirical_calibration import (
+    BEYONDSIGHT_EMPIRICAL_MASTER,
+    BEYONDSIGHT_RUNTIME_PARAMS,
+    apply_empirical_profile,
+)
 
 try:
     from ripser import ripser as ripser_compute
