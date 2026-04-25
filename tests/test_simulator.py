@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from simulator import calcular_efecto_grupos, resumen_historial, simular
+from simulator import calcular_efecto_grupos, resumen_historial, simular, simular_multiples
 
 
 class SimulatorTests(unittest.TestCase):
@@ -60,6 +60,79 @@ class SimulatorTests(unittest.TestCase):
         cfg = {"efecto_vecinos_peso": 0.05}
         efecto = calcular_efecto_grupos(estado, cfg)
         self.assertGreater(efecto, 0.0)
+
+    def test_simular_multiples_confianza_stays_non_negative_bipolar(self):
+        """
+        In bipolar mode [-1, 1], confianza and pertenencia_grupo must remain
+        in [0, 1] after noise perturbation. Previously, all float values were
+        clipped to the opinion range, so a low confianza (e.g. 0.005) would
+        go negative ~30% of the time, inflating ruido_std beyond its maximum.
+        """
+        np.random.seed(0)
+        estado = {
+            "opinion": 0.0,
+            "propaganda": 0.4,
+            "confianza": 0.005,          # very low — most likely to go negative
+            "opinion_grupo_a": 0.65,
+            "opinion_grupo_b": -0.55,
+            "pertenencia_grupo": 0.1,    # minimum allowed by homofilia rule
+        }
+        config = {"proveedor": "heurístico", "rango": "[-1, 1] — Bipolar"}
+
+        result = simular_multiples(
+            estado, pasos=5, cada_n_pasos=2, config=config, n_simulaciones=200
+        )
+
+        # The result must be a valid statistics dict
+        self.assertIn("media", result)
+        self.assertIn("percentiles", result)
+        self.assertEqual(result["neutro"], 0.0)
+
+    def test_simular_multiples_unit_interval_keys_clipped_correctly(self):
+        """
+        confianza and pertenencia_grupo must be clipped to [0, 1], not to the
+        opinion range. Verify by patching numpy.random.normal to always return
+        a large negative offset that would push these values below zero if
+        clipped to the bipolar range [-1, 1].
+        """
+        from unittest.mock import patch
+
+        estado = {
+            "opinion": 0.0,
+            "propaganda": 0.4,
+            "confianza": 0.02,
+            "opinion_grupo_a": 0.65,
+            "opinion_grupo_b": -0.55,
+            "pertenencia_grupo": 0.05,
+        }
+        config = {"proveedor": "heurístico", "rango": "[-1, 1] — Bipolar"}
+
+        # Force noise = -0.5 for every call. Without the fix, confianza and
+        # pertenencia_grupo would be clipped to [-1, 1] and become negative.
+        # With the fix they are clipped to [0, 1] and stay at 0.0.
+        captured_states = []
+
+        original_simular = simular
+
+        def mock_simular(estado_ruido, **kwargs):
+            captured_states.append(estado_ruido.copy())
+            return original_simular(estado_ruido, **kwargs)
+
+        with patch("simulator.simular", side_effect=mock_simular):
+            with patch("numpy.random.normal", return_value=-0.5):
+                simular_multiples(
+                    estado, pasos=3, cada_n_pasos=1, config=config, n_simulaciones=1
+                )
+
+        self.assertEqual(len(captured_states), 1)
+        perturbed = captured_states[0]
+        self.assertGreaterEqual(perturbed["confianza"], 0.0,
+            "confianza must not go negative after noise perturbation")
+        self.assertGreaterEqual(perturbed["pertenencia_grupo"], 0.0,
+            "pertenencia_grupo must not go negative after noise perturbation")
+        # Opinion-space values should still be clipped to [-1, 1]
+        self.assertGreaterEqual(perturbed["opinion"], -1.0)
+        self.assertLessEqual(perturbed["opinion"], 1.0)
 
 
 if __name__ == "__main__":
