@@ -59,6 +59,14 @@ try:
 except ImportError:
     EXTENDED_MODELS_AVAILABLE = False
 
+# EMPIRICAL INTEGRATION — importar base empírica si está disponible
+try:
+    from empirical_config import BEYONDSIGHT_RUNTIME_PARAMS, EMPIRICAL_BASE_LOADED
+    EMPIRICAL_AVAILABLE = True
+except ImportError:
+    EMPIRICAL_AVAILABLE = False
+    BEYONDSIGHT_RUNTIME_PARAMS = {}
+
 # ------------------------------------------------------------
 # LOGGING
 # ------------------------------------------------------------
@@ -1329,6 +1337,22 @@ def simular(
         A list of state dictionaries (including t=0).
     """
     cfg         = {**DEFAULT_CONFIG, **(config or {})}
+    # EMPIRICAL INTEGRATION — aplicar parámetros empíricos como defaults antes que el usuario los sobreescriba
+    # Los parámetros del usuario en config tienen prioridad; los valores 0.0 se tratan como neutralidad activa.
+    if EMPIRICAL_AVAILABLE and BEYONDSIGHT_RUNTIME_PARAMS:
+        empirical_defaults = {
+            # EMPIRICAL INTEGRATION — alias: temperature → ruido_base (caos/irracionalidad)
+            "ruido_base": float(np.clip(BEYONDSIGHT_RUNTIME_PARAMS.get("temperature", DEFAULT_CONFIG["ruido_base"]), 0.0, 1.0)),
+            # EMPIRICAL INTEGRATION — alias: social_influence_lambda → efecto_vecinos_peso
+            "efecto_vecinos_peso": float(np.clip(BEYONDSIGHT_RUNTIME_PARAMS.get("social_influence_lambda", DEFAULT_CONFIG["efecto_vecinos_peso"]) * 0.1, 0.0, 1.0)),
+            # EMPIRICAL INTEGRATION — alias: attractor_depth → alpha_blend (fuerza de narrativa dominante)
+            "alpha_blend": float(np.clip(BEYONDSIGHT_RUNTIME_PARAMS.get("attractor_depth", DEFAULT_CONFIG["alpha_blend"]), 0.0, 1.0)),
+        }
+        # Only set keys NOT already overridden by the caller's config argument
+        user_keys = set((config or {}).keys())
+        for k, v in empirical_defaults.items():
+            if k not in user_keys:
+                cfg[k] = v
     r           = _get_rango(cfg)
     alpha_blend = cfg["alpha_blend"]
     proveedor   = cfg.get("proveedor", "heurístico")
