@@ -73,6 +73,25 @@ Over a sliding window of the last 10 opinion values, the system continuously com
 **Topological Data Analysis — Persistent Homology (Carlsson, 2009; Perea & Harer, 2015):**  
 When the optional `ripser` + `persim` packages are installed, BeyondSight performs Takens delay-embedding of the opinion time series and computes H1 persistence diagrams via Vietoris-Rips filtration. A significant Wasserstein distance between consecutive diagrams signals a topological regime change (`🔺 Topological change detected`) — a geometrically-grounded early warning that complements the statistical EWS indicators.
 
+### Empirical Calibration Base
+
+Modeling complex social phenomena requires anchoring simulations to measurable, real-world parameters.  
+Academic research spanning psychology, political science, and network theory provides this empirical foundation.  
+Jointly calibrated from more than 40 peer-reviewed sources, each parameter carries variance metadata for cultural adaptation.  
+Opinion dynamics treated in isolation from data risks producing mathematically elegant but sociologically hollow results.  
+Rooting the simulator in these calibration indices shifts BeyondSight from a theoretical toy to a research-grade instrument.  
+Indices covering algorithmic drift, parasocial influence, confirmation bias, temporal decay, and game-theoretic payoffs are pre-loaded.  
+Together, they form a living empirical base that researchers can extend by adding parameters or updating cultural variance estimates.  
+Years of accumulated social science converge into a normalized bipolar spectrum, ready to inform every simulation step.  
+Researchers and practitioners alike can query the master dictionary at runtime to inspect source citations and confidence levels.  
+Evidence-grounded parameters prevent the simulator from drifting into pure speculation, keeping outputs interpretable and falsifiable.  
+Providing this layer of empirical accountability is what distinguishes BeyondSight from a pure mathematical sandbox.  
+Over upcoming releases, additional cultural blocks — Nordic, South Asian, Middle Eastern — will be populated with localized estimates.  
+Remaining gaps are flagged with `pending_empirical_data` tags, making the boundaries of current knowledge explicit rather than hidden.  
+Transparency about uncertainty is, ultimately, the most honest form of scientific modeling.
+
+The master dictionary (`empirical_calibration.py`) consolidates 43 parameters spanning network dynamics, temporal decay, and game-theoretic payoffs, all normalized to the bipolar `[-1.0, 1.0]` spectrum used by every simulation rule. Six cultural blocks are tracked — Latino, Anglo-Saxon, East Asian, South Asian, Middle Eastern, and Nordic — and each parameter optionally carries block-specific variance values. Calibration indices are loaded at startup via `empirical_config.py`, which exposes the master dictionary and a `EMPIRICAL_BASE_LOADED` flag for downstream consumers. Parameters without empirical consensus are explicitly tagged `pending_empirical_data`.
+
 ## Energy Landscape Engine
 
 BeyondSight's **Energy Landscape Engine** models social dynamics as a physical system where every agent's opinion evolves according to a Langevin stochastic differential equation:
@@ -227,6 +246,8 @@ BeyondSight/
 ├── .gitignore
 ├── app.py                        # Streamlit interface
 ├── cache_manager.py              # RAM + SQLite landscape cache
+├── empirical_calibration.py      # Master empirical calibration dictionary (43 parameters)
+├── empirical_config.py           # Calibration loader — EMPIRICAL_BASE_LOADED flag
 ├── energy_engine.py              # Langevin dynamics engine (Numba-accelerated)
 ├── energy_runner.py              # Langevin simulation orchestrator
 ├── energy_schemas.py             # Pydantic v2 schemas for EnergyConfig
