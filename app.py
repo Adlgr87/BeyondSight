@@ -32,6 +32,13 @@ from simulator import (
     simular_multiples_dask,
 )
 
+# EMPIRICAL INTEGRATION — importar indicadores de base empírica si disponibles
+try:
+    from empirical_config import BEYONDSIGHT_RUNTIME_PARAMS as _EMPIRICAL_RUNTIME
+    _EMPIRICAL_VALIDATION_FLAGS = _EMPIRICAL_RUNTIME.get("validation_flags", [])
+except ImportError:
+    _EMPIRICAL_VALIDATION_FLAGS = []
+
 # Load environment variables from .env
 load_dotenv()
 
@@ -159,6 +166,15 @@ st.markdown(
     '<div class="bs-subtitle">Simulador híbrido · Dinámica social · LLM + Núcleo numérico</div>',
     unsafe_allow_html=True,
 )
+
+# EMPIRICAL INTEGRATION — mostrar aviso si hay parámetros sin datos empíricos
+if _EMPIRICAL_VALIDATION_FLAGS:
+    n_pending = len(_EMPIRICAL_VALIDATION_FLAGS)
+    st.warning(
+        f"⚠️ **{n_pending} parámetro{'s' if n_pending != 1 else ''} sin datos empíricos** "
+        f"— usando lógica del motor",
+        icon="🔬",
+    )
 
 # ------------------------------------------------------------
 # SIDEBAR
