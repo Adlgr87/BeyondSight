@@ -22,7 +22,11 @@ except ImportError:
     log.warning("[ExtModels] nashpy no instalado — regla_nash usará fallback analítico.")
 
 try:
-    from pgmpy.models import BayesianNetwork
+    # pgmpy >= 1.1.0 renamed BayesianNetwork → DiscreteBayesianNetwork
+    try:
+        from pgmpy.models import DiscreteBayesianNetwork as BayesianNetwork
+    except ImportError:
+        from pgmpy.models import BayesianNetwork  # type: ignore[assignment]
     from pgmpy.factors.discrete import TabularCPD
     from pgmpy.inference import VariableElimination
     PGMPY_AVAILABLE = True
