@@ -43,12 +43,34 @@ from scipy import stats
 from scipy.integrate import solve_ivp
 from scipy.special import erf
 
+from schemas import GamePayoff
+from utility_logic import calculate_strategic_force
+from empirical_calibration import (
+    BEYONDSIGHT_EMPIRICAL_MASTER,
+    BEYONDSIGHT_RUNTIME_PARAMS,
+    apply_empirical_profile,
+)
+
 try:
     from ripser import ripser as ripser_compute
     from persim import wasserstein as wasserstein_dist
     TDA_AVAILABLE = True
 except ImportError:
     TDA_AVAILABLE = False
+
+try:
+    from extended_models import regla_nash, regla_bayesiana, regla_sir
+    EXTENDED_MODELS_AVAILABLE = True
+except ImportError:
+    EXTENDED_MODELS_AVAILABLE = False
+
+# EMPIRICAL INTEGRATION — importar base empírica si está disponible
+try:
+    from empirical_config import BEYONDSIGHT_RUNTIME_PARAMS, EMPIRICAL_BASE_LOADED
+    EMPIRICAL_AVAILABLE = True
+except ImportError:
+    EMPIRICAL_AVAILABLE = False
+    BEYONDSIGHT_RUNTIME_PARAMS = {}
 
 # ------------------------------------------------------------
 # LOGGING
@@ -165,6 +187,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # Homofilia dinámica
     # Velocidad con la que los pesos de grupo se actualizan según similitud de opinión
     "homofilia_tasa": 0.05,
+    # ── Capa Estratégica (Teoría de Juegos) ───────────────
+    # enabled  : activa la fuerza estratégica sobre cada paso
+    # payoff   : matriz 2×2 Cooperar/Defectar en rango [-1, 1]
+    #   cc =  1.0 → ambos cooperan (consenso)
+    #   cd = -1.0 → yo coopero, el otro traiciona (ingenuo)
+    #   dc =  1.0 → yo traiciono, el otro coopera (tentación)
+    #   dd = -1.0 → ambos traicionan (caos)
+    # strategic_weight (ω): cuánto pesa la fuerza estratégica [0.0–1.0]
+    "strategic": {
+        "enabled": False,
+        "payoff_matrix": {"cc": 1.0, "cd": -1.0, "dc": 1.0, "dd": -1.0},
+        "strategic_weight": 0.3,
+    },
 }
 
 # Default 2×2 payoff matrix for the Replicator (EGT) rule.
@@ -184,10 +219,18 @@ _RANGOS_PARAMS: dict[str, dict[str, tuple]] = {
     "umbral_heterogeneo":   {"media": (0.3, 0.7), "std": (0.05, 0.25)},
     "homofilia":            {"tasa": (0.02, 0.15)},
     "replicador":           {"dt": (0.01, 1.0)},
+    "nash":                 {"c_same": (1.0, 3.0), "c_diff": (0.0, 1.5), "intensity": (0.5, 2.0)},
+    "bayesiano":            {"n_prior": (5.0, 20.0), "n_obs": (2.0, 10.0), "inertia": (0.1, 0.8)},
+    "sir":                  {"beta": (0.05, 0.8), "gamma": (0.01, 0.5), "dt": (0.05, 0.5)},
 }
 
 # Sliding-window size used by EWS metrics and TDA detection
 HISTORY_BUFFER_SIZE: int = 10
+
+# Fraction of the opinion-range amplitude beyond which groups are considered
+# highly polarised when the strategic layer is active (used by the heuristic
+# selector to prefer the EGT Replicator rule).
+_STRATEGIC_POLARIZATION_THRESHOLD: float = 0.5
 
 
 # ============================================================
@@ -212,6 +255,55 @@ def _es_bipolar(cfg: dict) -> bool:
 def _amplitud(cfg: dict) -> float:
     r = _get_rango(cfg)
     return r["max"] - r["min"]
+
+
+# ============================================================
+# MECANISMO: CAPA ESTRATÉGICA (Teoría de Juegos)
+# Transversal — se suma al gradiente físico en cada paso.
+# El threshold de "vecinos cerca del neutro" usa 0.2 en rango [-1, 1]
+# (|avg| < 0.2) y la misma magnitud absoluta para [0, 1].
+# ============================================================
+
+def _calcular_fuerza_estrategica(estado: dict, cfg: dict) -> float:
+    """
+    Applies the Game Theory strategic force to the current state.
+
+    When the strategic layer is enabled in cfg["strategic"], this
+    function calls calculate_strategic_force() with the agent's
+    neighbours (groups A and B) and scales the result to the same
+    order of magnitude as calcular_efecto_grupos().
+
+    Args:
+        estado: Current simulation state.
+        cfg: Global configuration, must contain "strategic" sub-dict.
+
+    Returns:
+        Signed float delta to add to the opinion update, or 0.0 when
+        the layer is disabled.
+    """
+    strategic_cfg = cfg.get("strategic", {})
+    if not strategic_cfg.get("enabled", False):
+        return 0.0
+
+    neutro = _neutro(cfg)
+    payoff = GamePayoff(**strategic_cfg.get("payoff_matrix", {}))
+    w = float(np.clip(strategic_cfg.get("strategic_weight", 0.3), 0.0, 1.0))
+
+    neighbors = [
+        estado.get("opinion_grupo_a", neutro),
+        estado.get("opinion_grupo_b", neutro),
+    ]
+
+    # proximity_threshold: 0.2 absolute — correct for [-1,1] (neutral=0)
+    # and reasonable for [0,1] (neutral=0.5, checks |avg-0.5|<0.2)
+    force = calculate_strategic_force(
+        estado["opinion"], neighbors, payoff,
+        neutral=neutro, proximity_threshold=0.2,
+    )
+
+    # Scale to match other per-step forces (efecto_vecinos_peso ≈ 0.05)
+    scale = cfg.get("efecto_vecinos_peso", 0.05)
+    return w * force * scale
 
 
 # ============================================================
@@ -854,6 +946,11 @@ REGLAS: dict[str, dict[int, Any]] = {
     }
 }
 
+if EXTENDED_MODELS_AVAILABLE:
+    REGLAS["campana"][10] = regla_nash
+    REGLAS["campana"][11] = regla_bayesiana
+    REGLAS["campana"][12] = regla_sir
+
 NOMBRES_REGLAS = {
     0: "lineal",
     1: "umbral",
@@ -865,6 +962,9 @@ NOMBRES_REGLAS = {
     7: "umbral_heterogeneo",
     8: "homofilia",
     9: "replicador",
+    10: "nash",
+    11: "bayesiano",
+    12: "sir",
 }
 
 # Descripción de cada regla para la UI
@@ -879,6 +979,9 @@ DESCRIPCIONES_REGLAS = {
     7: "Distribución de umbrales — cascadas sociales (Granovetter)",
     8: "Red co-evolutiva — homofilia dinámica",
     9: "Ecuación replicadora — dinámica evolutiva de estrategias (EGT)",
+    10: "Equilibrio de Nash — estrategias estables en juego de coordinación",
+    11: "Red Bayesiana — actualización probabilística de creencias",
+    12: "SIR Epidemiológico — contagio de opiniones como epidemia",
 }
 
 
@@ -938,7 +1041,10 @@ Decision Examples:
 - strong trend already started → polarizacion
 - social cascade effect desired → umbral_heterogeneo
 - groups tend to cluster by similarity → homofilia
-- evolutionary pressure between group strategies → replicador"""
+- evolutionary pressure between group strategies → replicador
+- groups converging, coordination equilibrium → nash
+- probabilistic belief update with evidence → bayesiano
+- epidemic-like opinion spread → sir"""
 
     base_prompt = f"""You are a rule selector for a social dynamics simulation.
 Scenario: {escenario} | Range: {rango_desc}
@@ -961,9 +1067,12 @@ Available Rules:
 7: umbral_heterogeneo   — social cascades (Granovetter)
 8: homofilia            — co-evolutionary network, groups by similarity
 9: replicador           — evolutionary game theory, strategy frequencies
+10: nash               — Nash equilibrium, stable coordination strategies
+11: bayesiano          — Bayesian network, probabilistic belief update
+12: sir                — SIR epidemiological contagion
 
 Respond ONLY with JSON:
-{{"regla": <0-9>, "params": {{...}}, "razon": "<explanation>"}}
+{{"regla": <0-12>, "params": {{...}}, "razon": "<explanation>"}}
 Fallback: {{"regla": 0, "params": {{}}, "razon": "fallback"}}
 """
 
@@ -1127,6 +1236,14 @@ def llamar_llm_heuristico(estado: dict, escenario: str,
                 "params": {"competencia": cfg.get("competencia_peso", 0.4)},
                 "razon": "contagio_competitivo: narrativa B activa y relevante"}
 
+    # Capa estratégica activa + alta polarización → Replicador EGT
+    # Los agentes ya están bajo presión de juego; el modelo evolutivo
+    # captura mejor la dinámica de estrategias enfrentadas.
+    if cfg.get("strategic", {}).get("enabled", False) and distancia_grupos > _STRATEGIC_POLARIZATION_THRESHOLD * amp:
+        return {"regla": 9,
+                "params": {"dt": 0.1},
+                "razon": "replicador: capa estratégica activa con alta polarización entre grupos"}
+
     # Grupos muy distantes → HK (solo escucha a similares)
     if distancia_grupos > 0.6 * amp:
         return {"regla": 5,
@@ -1162,6 +1279,12 @@ def llamar_llm_heuristico(estado: dict, escenario: str,
         return {"regla": 2,
                 "params": {"alpha": 0.75, "beta": 0.18, "gamma": 0.07},
                 "razon": "memoria: sistema estable, inercia dominante"}
+
+    # Sistema estable con grupos muy similares → Nash equilibrium
+    if EXTENDED_MODELS_AVAILABLE and distancia_grupos < 0.25 * amp and abs(delta) < 0.02 * amp:
+        return {"regla": 10,
+                "params": {"c_same": 2.0, "c_diff": 0.5},
+                "razon": "nash: grupos próximos, equilibrio de coordinación"}
 
     return {"regla": 0,
             "params": {"a": 0.72, "b": 0.28},
@@ -1219,6 +1342,22 @@ def simular(
         A list of state dictionaries (including t=0).
     """
     cfg         = {**DEFAULT_CONFIG, **(config or {})}
+    # EMPIRICAL INTEGRATION — aplicar parámetros empíricos como defaults antes que el usuario los sobreescriba
+    # Los parámetros del usuario en config tienen prioridad; los valores 0.0 se tratan como neutralidad activa.
+    if EMPIRICAL_AVAILABLE and BEYONDSIGHT_RUNTIME_PARAMS:
+        empirical_defaults = {
+            # EMPIRICAL INTEGRATION — alias: temperature → ruido_base (caos/irracionalidad)
+            "ruido_base": float(np.clip(BEYONDSIGHT_RUNTIME_PARAMS.get("temperature", DEFAULT_CONFIG["ruido_base"]), 0.0, 1.0)),
+            # EMPIRICAL INTEGRATION — alias: social_influence_lambda → efecto_vecinos_peso
+            "efecto_vecinos_peso": float(np.clip(BEYONDSIGHT_RUNTIME_PARAMS.get("social_influence_lambda", DEFAULT_CONFIG["efecto_vecinos_peso"]) * 0.1, 0.0, 1.0)),
+            # EMPIRICAL INTEGRATION — alias: attractor_depth → alpha_blend (fuerza de narrativa dominante)
+            "alpha_blend": float(np.clip(BEYONDSIGHT_RUNTIME_PARAMS.get("attractor_depth", DEFAULT_CONFIG["alpha_blend"]), 0.0, 1.0)),
+        }
+        # Only set keys NOT already overridden by the caller's config argument
+        user_keys = set((config or {}).keys())
+        for k, v in empirical_defaults.items():
+            if k not in user_keys:
+                cfg[k] = v
     r           = _get_rango(cfg)
     alpha_blend = cfg["alpha_blend"]
     proveedor   = cfg.get("proveedor", "heurístico")
@@ -1281,11 +1420,12 @@ def simular(
         tendencia_base = 0.92 * estado["opinion"] + 0.08 * estado["propaganda"]
         opinion_blend  = alpha_blend * opinion_regla + (1.0 - alpha_blend) * tendencia_base
 
-        # Efecto de grupos + ruido adaptativo
+        # Efecto de grupos + fuerza estratégica + ruido adaptativo
         ruido_std     = cfg["ruido_base"] + cfg["ruido_desconfianza"] * (1.0 - estado["confianza"])
         opinion_final = _clip(
             opinion_blend
             + calcular_efecto_grupos(estado, cfg)
+            + _calcular_fuerza_estrategica(estado, cfg)
             + np.random.normal(0.0, ruido_std),
             cfg
         )
@@ -1296,7 +1436,9 @@ def simular(
         if "pertenencia_grupo" in estado_regla:
             nuevo["pertenencia_grupo"] = estado_regla["pertenencia_grupo"]
         # Métricas auxiliares de reglas avanzadas
-        for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b"):
+        for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b",
+                  "_nash_sigma_a", "_nash_sigma_b", "_bayes_uncertainty",
+                  "_sir_S", "_sir_I", "_sir_R"):
             if k in estado_regla:
                 nuevo[k] = estado_regla[k]
 
@@ -1400,6 +1542,77 @@ def simular_multiples(
 
 
 # ============================================================
+# SIMULACIÓN MÚLTIPLE — PARALELA CON DASK
+# ============================================================
+
+def simular_multiples_dask(
+    estado_inicial: dict,
+    escenario: str = "campana",
+    pasos: int = 50,
+    cada_n_pasos: int = 5,
+    config: dict | None = None,
+    n_simulaciones: int = 100,
+    seed: int | None = None,
+) -> dict:
+    """
+    Runs N simulations in parallel using Dask delayed computation.
+    Falls back to sequential simular_multiples if Dask is unavailable.
+
+    Args:
+        Same as simular_multiples, plus:
+        seed: Optional RNG seed for reproducibility (default: None = random).
+
+    Returns:
+        Same statistics dictionary as simular_multiples, with "parallel" key.
+    """
+    try:
+        from dask import delayed, compute as dask_compute
+    except ImportError:
+        log.warning("Dask no disponible — usando modo secuencial.")
+        return simular_multiples(estado_inicial, escenario, pasos,
+                                 cada_n_pasos, config, n_simulaciones)
+
+    cfg       = {**DEFAULT_CONFIG, **(config or {})}
+    r         = _get_rango(cfg)
+    ruido_ini = cfg["ruido_estado_inicial"]
+    rng       = np.random.default_rng(seed)
+    noises    = rng.normal(0, ruido_ini, size=(n_simulaciones, len(estado_inicial)))
+
+    @delayed
+    def _run_one(noise_row: np.ndarray) -> float:
+        keys = list(estado_inicial.keys())
+        estado_ruido = {}
+        for idx, k in enumerate(keys):
+            v = estado_inicial[k]
+            if isinstance(v, float):
+                estado_ruido[k] = float(np.clip(v + noise_row[idx], r["min"], r["max"]))
+            else:
+                estado_ruido[k] = v
+        hist = simular(estado_ruido, escenario=escenario, pasos=pasos,
+                       cada_n_pasos=cada_n_pasos, config=config, verbose=False)
+        return hist[-1]["opinion"]
+
+    tasks      = [_run_one(noises[i]) for i in range(n_simulaciones)]
+    resultados = np.array(dask_compute(*tasks))
+
+    neutro = _neutro(cfg)
+    p10, p25, p50, p75, p90 = np.percentile(resultados, [10, 25, 50, 75, 90])
+    return {
+        "media":          float(resultados.mean()),
+        "std":            float(resultados.std()),
+        "p_sobre_neutro": float((resultados > neutro).mean()),
+        "percentiles":    {"p10": float(p10), "p25": float(p25), "p50": float(p50),
+                           "p75": float(p75), "p90": float(p90)},
+        "escenarios":     {"optimista": float(p90), "mediano": float(p50),
+                           "pesimista":  float(p10)},
+        "neutro":         neutro,
+        "n_simulaciones": n_simulaciones,
+        "rango":          cfg["rango"],
+        "parallel":       True,
+    }
+
+
+# ============================================================
 # UTILIDADES
 # ============================================================
 
@@ -1432,6 +1645,84 @@ def resumen_historial(historial: list[dict], config: dict | None = None) -> dict
         "neutro":             neutro,
         "rango":              cfg.get("rango", "—"),
     }
+
+
+# ============================================================
+# CHECKPOINTING y RECOVERY
+# ============================================================
+
+def save_checkpoint(historial: list[dict], filepath: str | Path) -> None:
+    """
+    Saves simulation history to a JSON checkpoint file for later recovery.
+
+    Only JSON-serializable fields are preserved; non-serializable values
+    (numpy arrays, etc.) are converted to Python native types where possible
+    or dropped with a warning.
+
+    Args:
+        historial: List of state dictionaries from :func:`simular`.
+        filepath: Destination path for the checkpoint file.
+    """
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    def _make_serializable(obj: Any) -> Any:
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, dict):
+            return {k: _make_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_make_serializable(v) for v in obj]
+        if isinstance(obj, set):
+            return sorted(_make_serializable(v) for v in obj)
+        if not isinstance(obj, (str, int, float, bool, type(None))):
+            log.warning(
+                "save_checkpoint: tipo no serializable ignorado: %s=%r",
+                type(obj).__name__,
+                obj,
+            )
+            return None
+        return obj
+
+    serializable = _make_serializable(historial)
+    with filepath.open("w", encoding="utf-8") as fh:
+        json.dump({"version": 1, "historial": serializable}, fh, ensure_ascii=False, indent=2)
+    log.info(f"Checkpoint guardado: {filepath} ({len(historial)} pasos)")
+
+
+def load_checkpoint(filepath: str | Path) -> list[dict]:
+    """
+    Loads a simulation history from a JSON checkpoint file.
+
+    Args:
+        filepath: Path to the checkpoint file previously saved by
+            :func:`save_checkpoint`.
+
+    Returns:
+        List of state dictionaries (historial) that can be passed directly
+        to :func:`resumen_historial` or used as the base for continued
+        simulation.
+
+    Raises:
+        FileNotFoundError: If *filepath* does not exist.
+        ValueError: If the file format is unrecognised or corrupted.
+    """
+    filepath = Path(filepath)
+    if not filepath.exists():
+        raise FileNotFoundError(f"Checkpoint no encontrado: {filepath}")
+    with filepath.open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict) or "historial" not in data:
+        raise ValueError(f"Formato de checkpoint inválido: {filepath}")
+    historial = data["historial"]
+    if not isinstance(historial, list):
+        raise ValueError(f"Campo 'historial' debe ser una lista: {filepath}")
+    log.info(f"Checkpoint cargado: {filepath} ({len(historial)} entradas)")
+    return historial
 
 
 # ============================================================
@@ -1562,6 +1853,7 @@ def run_with_schedule(
             opinion_final = _clip(
                 opinion_blend
                 + calcular_efecto_grupos(estado, cfg)
+                + _calcular_fuerza_estrategica(estado, cfg)
                 + np.random.normal(0.0, ruido_std),
                 cfg,
             )
@@ -1569,7 +1861,9 @@ def run_with_schedule(
             nuevo = estado.copy()
             if "pertenencia_grupo" in estado_regla:
                 nuevo["pertenencia_grupo"] = estado_regla["pertenencia_grupo"]
-            for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b"):
+            for k in ("_fraccion_adoptantes", "_sim_grupo_a", "_sim_grupo_b",
+                      "_nash_sigma_a", "_nash_sigma_b", "_bayes_uncertainty",
+                      "_sir_S", "_sir_I", "_sir_R"):
                 if k in estado_regla:
                     nuevo[k] = estado_regla[k]
 

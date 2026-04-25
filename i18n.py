@@ -36,6 +36,16 @@ STRINGS = {
         "activate_replicator": "Activate Replicator (EGT)",
         "payoff_matrix": "Payoff Matrix (JSON 2D array)",
         "dt_step": "dt (integration step)",
+        "strategic_section": "#### 🎮 Strategic Layer (Game Theory)",
+        "activate_strategic": "Activate Strategic Layer",
+        "strategic_weight": "Strategic Weight (ω)",
+        "strategic_preset": "Game Preset",
+        "strategic_preset_options": ["Custom", "Prisoner's Dilemma", "Stag Hunt", "Coordination"],
+        "strategic_cc": "cc — Both cooperate (consensus)",
+        "strategic_cd": "cd — I cooperate, other defects (sucker)",
+        "strategic_dc": "dc — I defect, other cooperates (temptation)",
+        "strategic_dd": "dd — Both defect (chaos)",
+        "strategic_help": "The strategic force biases agents toward cooperation or defection based on their neighbours' positions. Range [-1, 1].",
         "ews_section": "#### 🚨 Early Warning Signals",
         "ews_warning": "⚠️ EWS: high_variance={hv}, high_autocorr={ha}, high_skewness={hs}",
         "tda_change": "🔺 Topological change detected (TDA/PH)",
@@ -85,11 +95,15 @@ STRINGS = {
 | 7 | **Heterogeneous Threshold** | Granovetter (1978) | Social cascades |
 | 8 | **Homofily** | Axelrod (1997) | Groups converge by similarity |
 | 9 | **Replicator** | Taylor & Jonker (1978) | Evolutionary pressure between group strategies |
+| 10 | **Nash Equilibrium** | Nash (1950) | Groups near coordination equilibrium |
+| 11 | **Bayesian Network** | Pearl (1988) | Probabilistic belief update with evidence |
+| 12 | **SIR Contagion** | Kermack & McKendrick (1927) | Epidemic-like opinion spread |
 
 **Cross-cutting Mechanisms:**
 - **Confirmation Bias** — opposing propaganda arrives attenuated based on current position.
 - **Bipolar Range [-1,1]** — active rejection has direct and symmetrical expression with support.
 - **Narrative B** — enables competitive contagion between two simultaneous narratives.
+- **Strategic Layer (Game Theory)** — payoff-based force biases agents toward cooperation or defection.
 """,
         "range_guide_content": """
 | Situation | Range | Why |
@@ -132,6 +146,16 @@ STRINGS = {
         "activate_replicator": "Activar Replicador (EGT)",
         "payoff_matrix": "Matriz de pagos (JSON 2D)",
         "dt_step": "dt (paso de integración)",
+        "strategic_section": "#### 🎮 Capa Estratégica (Teoría de Juegos)",
+        "activate_strategic": "Activar Capa Estratégica",
+        "strategic_weight": "Peso estratégico (ω)",
+        "strategic_preset": "Preset de juego",
+        "strategic_preset_options": ["Personalizado", "Dilema del Prisionero", "Caza del Ciervo", "Coordinación"],
+        "strategic_cc": "cc — Ambos cooperan (consenso)",
+        "strategic_cd": "cd — Yo coopero, otro traiciona (ingenuo)",
+        "strategic_dc": "dc — Yo traiciono, otro coopera (tentación)",
+        "strategic_dd": "dd — Ambos traicionan (caos)",
+        "strategic_help": "La fuerza estratégica sesga a los agentes hacia cooperación o defección según la posición de sus vecinos. Rango [-1, 1].",
         "ews_section": "#### 🚨 Señales de Alerta Temprana",
         "ews_warning": "⚠️ EWS: varianza_alta={hv}, autocorr_alta={ha}, sesgo_alto={hs}",
         "tda_change": "🔺 Cambio topológico detectado (TDA/PH)",
@@ -181,11 +205,15 @@ STRINGS = {
 | 7 | **Umbral heterogéneo** | Granovetter (1978) | Cascadas sociales |
 | 8 | **Homofilia** | Axelrod (1997) | Grupos convergen por similitud |
 | 9 | **Replicador** | Taylor & Jonker (1978) | Presión evolutiva entre estrategias de grupo |
+| 10 | **Equilibrio de Nash** | Nash (1950) | Grupos próximos en equilibrio de coordinación |
+| 11 | **Red Bayesiana** | Pearl (1988) | Actualización probabilística de creencias |
+| 12 | **Contagio SIR** | Kermack & McKendrick (1927) | Difusión de opiniones tipo epidemia |
 
 **Mecanismos transversales:**
 - **Sesgo de confirmación** — propaganda contraria llega atenuada según la posición actual
 - **Rango bipolar [-1,1]** — rechazo activo tiene expresión directa y simétrica con el apoyo
 - **Narrativa B** — habilita el contagio competitivo entre dos narrativas simultáneas
+- **Capa Estratégica (Teoría de Juegos)** — fuerza basada en pagos que sesga a los agentes hacia cooperación o defección
 """,
         "range_guide_content": """
 | Situación | Rango | Por qué |
