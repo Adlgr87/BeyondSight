@@ -299,7 +299,8 @@ def regla_bayesiana(estado: dict, params: dict, cfg: dict) -> dict:
             new_op = float(
                 probs[0] * r_min + probs[1] * midpoint + probs[2] * r_max
             )
-            uncertainty = float(np.sqrt(np.sum(probs * (np.array([0, 0.5, 1]) - np.dot(probs, [0, 0.5, 1]))**2)))
+            mean_val = np.dot(probs, [0, 0.5, 1])
+            uncertainty = float(np.sqrt(np.sum(probs * (np.array([0, 0.5, 1]) - mean_val) ** 2)))
         except Exception as exc:
             log.debug(f"[Bayesian] pgmpy inference error: {exc}; using Beta-Binomial.")
             new_op = _beta_binom_update(opinion, prop, confianza, pres_social,
