@@ -75,8 +75,7 @@ def generate_social_network_viz(opinion_mean, confianza, amalgama=False, n_nodes
         text=[f"Agente {i} | Ideología: {op:.2f}" for i, op in enumerate(opinions)],
         marker=dict(
             showscale=True,
-            colorscale='RdBu' if is_bipolar else 'Blues',
-            reversescale=False,
+            colorscale='RdBu' if is_bipolar else 'Blues',            reversescale=False,
             color=colors,
             size=12,
             colorbar=dict(
@@ -87,8 +86,7 @@ def generate_social_network_viz(opinion_mean, confianza, amalgama=False, n_nodes
                     font=dict(color='#5ccfe6', size=12),
                 ),
                 xanchor='left',
-                tickfont=dict(color='#8ba7c0', size=10),
-            ),
+                tickfont=dict(color='#8ba7c0', size=10),            ),
             line_width=1.5,
             line_color='#0a0e14'
         ))
@@ -99,8 +97,7 @@ def generate_social_network_viz(opinion_mean, confianza, amalgama=False, n_nodes
                     text='Topología de Red Endógena (Simulación Abstracción)',
                     font=dict(size=14, color='#5ccfe6', family='monospace'),
                 ),
-                showlegend=False,
-                hovermode='closest',
+                showlegend=False,                hovermode='closest',
                 margin=dict(b=20,l=5,r=5,t=40),
                 plot_bgcolor='#0d1520',
                 paper_bgcolor='#0d1520',

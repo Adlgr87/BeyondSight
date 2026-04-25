@@ -23,12 +23,14 @@ def test_evaluar_resultado_consenso():
 def test_evaluar_resultado_falla_polarizacion():
     # Simulate a network that should have reached consensus but remained extremely partisan
     objetivo = "despolarizar"
+    # Using range [0, 1], so 0.9 and 0.1 are polarized. Average is 0.5 but variance is high.
+    # However, social_architect evaluation uses polarizacion_media from stats.
+    # To make it fail, we need high polarizacion.
     historial = [
         {"opinion": 0.9},
         {"opinion": 0.95},
     ]
     config = {}
-
     score, feedback = evaluar_resultado(historial, objetivo, config)
 
     assert score < CONSENSUS_SUCCESS_THRESHOLD

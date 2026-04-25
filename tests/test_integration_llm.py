@@ -10,7 +10,6 @@ def test_llm_selector_fallback():
     """
     estado = {"opinion": 0.5, "propaganda": 0.1}
     cfg = {**DEFAULT_CONFIG, "proveedor": "openai", "api_key": "fake"}
-
     with patch("requests.post") as mock_post:
         mock_post.side_effect = requests.exceptions.ConnectionError("Connection Error")
 

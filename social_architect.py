@@ -40,11 +40,35 @@ def setup_client():
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
+def parse_llm_strategy(llm_output: str) -> dict:
+    """
+    Extrae y parsea el JSON de la respuesta del LLM, manejando bloques de código markdown.
+    """
+    import re
+    # Buscar bloques de código ```json ... ``` o simplemente el primer par de llaves { ... }
+    json_match = re.search(r"```json\s*(.*?)\s*```", llm_output, re.DOTALL)
+    if not json_match:
+        json_match = re.search(r"({.*})", llm_output, re.DOTALL)
+    
+    if json_match:
+        try:
+            return json.loads(json_match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+            
+    # Último recurso: intentar cargar todo el texto si falla el regex
+    try:
+        return json.loads(llm_output.strip())
+    except json.JSONDecodeError:
+        log.error(f"Fallo crítico al parsear estrategia del LLM: {llm_output[:100]}...")
+        return {"interventions": []}
+
+
 # ============================================================
 # EVALUADOR DE RESULTADOS
 # ============================================================
 
-def evaluar_resultado(historial, objetivo_usuario, config):
+def evaluar_resultado(historial, objetivo_usuario, config=None):
     """
     Calcula un score (0 a 100) y genera texto de feedback para el LLM.
 
@@ -56,7 +80,8 @@ def evaluar_resultado(historial, objetivo_usuario, config):
     Returns:
         Tupla (score: float, feedback: str).
     """
-    stats = resumen_historial(historial, config)
+    cfg = {**DEFAULT_CONFIG, **(config or {})}
+    stats = resumen_historial(historial, cfg)
     polarizacion = stats["polarizacion_media"]
     delta = stats["delta_total"]
 

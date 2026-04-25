@@ -615,8 +615,13 @@ with tab1:
             )
             
             st.markdown("### Topología de Red Social (Física)")
-            fig_net = generate_social_network_viz(opiniones[-1], historial[-1]["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
-            st.plotly_chart(fig_net, use_container_width=True)
+            confianza_final = float(historial[-1].get("confianza", estado_inicial.get("confianza", confianza)))
+            fig_net = generate_social_network_viz(
+                opiniones[-1],
+                confianza_final,
+                amalgama=not es_bipolar,
+                is_bipolar=es_bipolar
+            )            st.plotly_chart(fig_net, use_container_width=True)
             
             share_url = "https://github.com/Adlgr87/BeyondSight"
             st.markdown(f"**¿Impresionante?** [Compartir en 𝕏](https://twitter.com/intent/tweet?text=Acabo%20de%20simular%20una%20dinámica%20social%20en%20BeyondSight%20AI!%20&url={share_url}) | [Compartir en LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url={share_url})")
@@ -857,29 +862,40 @@ with tab2:
                 if metricas_red:
                     st.write(f"🔍 Métricas de red inyectadas en el prompt del LLM.")
 
-                estrategia, narrativa, intentos, hist_inverso = buscar_estrategia_inversa(
-                    estado_inicial=estado_inicial,
-                    objetivo_usuario=objetivo,
-                    max_intentos=3,
-                    config=config_run,
-                    modo_simulacion=modo_simulacion,
-                    metricas_red=metricas_red,
-                    use_langchain=usar_langchain_arq,
-                )
-                st.session_state["estr_inversa"] = {
-                    "estrategia": estrategia,
-                    "narrativa": narrativa,
-                    "hist_inverso": hist_inverso,
-                    "modo": modo_simulacion,
-                }
-                st.session_state["objetivo_inverso"] = objetivo
-                status.update(
-                    label=f"Estrategia encontrada en {intentos} iteraciones!",
-                    state="complete",
-                    expanded=False,
-                )
-                st.rerun()
-        else:
+                try:
+                    estrategia, narrativa, intentos, hist_inverso = buscar_estrategia_inversa(
+                        estado_inicial=estado_inicial,
+                        objetivo_usuario=objetivo,
+                        max_intentos=3,
+                        config=config_run,
+                        modo_simulacion=modo_simulacion,
+                        metricas_red=metricas_red,
+                    )
+                except Exception as e:
+                    status.update(
+                        label="Error generando estrategia con el proveedor LLM",
+                        state="error",
+                        expanded=True,
+                    )
+                    st.error(
+                        "No se pudo generar la estrategia en este momento. "
+                        "Verifica la API key, conectividad o cambia de proveedor/modelo."
+                    )
+                    st.caption(f"Detalle técnico: {e}")
+                else:
+                    st.session_state["estr_inversa"] = {
+                        "estrategia": estrategia,
+                        "narrativa": narrativa,
+                        "hist_inverso": hist_inverso,
+                        "modo": modo_simulacion,
+                    }
+                    st.session_state["objetivo_inverso"] = objetivo
+                    status.update(
+                        label=f"Estrategia encontrada en {intentos} iteraciones!",
+                        state="complete",
+                        expanded=False,
+                    )
+                    st.rerun()        else:
             st.warning("Por favor, describe un objetivo.")
 
     if st.session_state["estr_inversa"]:
@@ -892,12 +908,31 @@ with tab2:
             with st.form("lead_form"):
                 email = st.text_input("Email Corporativo:")
                 submit = st.form_submit_button("🔓 Desbloquear Reporte")
-                if submit and email:
-                    with open("leads.csv", "a") as f:
-                        f.write(email + "\n")
-                    st.session_state["lead_captured"] = True
-                    st.rerun()
-        else:
+                if submit:
+                    import re
+
+                    email_normalizado = (email or "").strip().lower()
+                    patron_email = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+
+                    if not email_normalizado:
+                        st.error("Ingresa un email corporativo válido.")
+                    elif not re.match(patron_email, email_normalizado):
+                        st.error("Formato de email inválido.")
+                    else:
+                        try:
+                            existentes = set()
+                            if os.path.exists("leads.csv"):
+                                with open("leads.csv", "r", encoding="utf-8") as f:
+                                    existentes = {line.strip().lower() for line in f if line.strip()}
+
+                            if email_normalizado not in existentes:
+                                with open("leads.csv", "a", encoding="utf-8") as f:
+                                    f.write(email_normalizado + "\\n")
+
+                            st.session_state["lead_captured"] = True
+                            st.rerun()
+                        except OSError as e:
+                            st.error(f"No se pudo guardar el email. Detalle técnico: {e}")        else:
             titulo_narrativa = (
                 "📋 Reporte Ejecutivo de Cambio Organizacional"
                 if modo_inv == "corporativo" else
