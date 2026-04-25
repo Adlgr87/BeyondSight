@@ -139,6 +139,8 @@ def build_llm(
             return None
         ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
         return ChatOpenAI(
+            # Ollama's local API does not require authentication;
+            # langchain-openai requires a non-empty string, so we pass a placeholder.
             api_key="ollama",
             model=model or "llama3:8b",
             temperature=temperature,

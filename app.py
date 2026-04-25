@@ -340,8 +340,15 @@ with st.sidebar:
                     st.error(f"Error: {e}")
 
         if social_opinions and len(social_opinions.get("opinions", [])) > 0:
-            st.caption(f"📊 σ={social_opinions['std_opinion']:.3f} | Usando opinión media como estado inicial")
-            opinion0 = float(social_opinions["mean_opinion"])
+            social_mean = float(social_opinions["mean_opinion"])
+            st.caption(f"📊 σ={social_opinions['std_opinion']:.3f} | Opinión media de RRSS: {social_mean:+.3f}")
+            usar_opinion_social = st.toggle(
+                f"Usar {social_mean:+.3f} como opinión inicial (reemplaza el slider)",
+                value=True,
+                key="usar_opinion_social_toggle",
+            )
+            if usar_opinion_social:
+                opinion0 = social_mean
 
     st.markdown("---")
     correr = st.button(t("run_simulation", lang))

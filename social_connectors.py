@@ -112,20 +112,24 @@ class TwitterConnector:
         query: str,
         max_results: int = 100,
         range_type: str = "bipolar",
+        lang: str = "en",
     ) -> dict:
         """
         Search recent tweets for ``query`` and return opinion statistics.
 
         Args:
             query: Twitter search query string.
-            max_results: Number of tweets to fetch (10–100 per API call).
+            max_results: Number of tweets to fetch (10–100 per API call, free tier limit).
             range_type: "bipolar" [-1,1] or "unipolar" [0,1].
+            lang: BCP-47 language code for tweet language filter (default "en").
+                  Set to "" to disable the language filter and search all languages.
 
         Returns:
             dict with keys: opinions, mean_opinion, std_opinion, n_tweets, query.
         """
         max_results = int(np.clip(max_results, 10, 100))
-        query_safe = f"{query} lang:en -is:retweet"
+        lang_filter = f" lang:{lang}" if lang.strip() else ""
+        query_safe = f"{query}{lang_filter} -is:retweet"
         try:
             response = self.client.search_recent_tweets(
                 query=query_safe,
