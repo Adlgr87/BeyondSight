@@ -95,11 +95,15 @@ STRINGS = {
 | 7 | **Heterogeneous Threshold** | Granovetter (1978) | Social cascades |
 | 8 | **Homofily** | Axelrod (1997) | Groups converge by similarity |
 | 9 | **Replicator** | Taylor & Jonker (1978) | Evolutionary pressure between group strategies |
+| 10 | **Nash Equilibrium** | Nash (1950) | Groups near coordination equilibrium |
+| 11 | **Bayesian Network** | Pearl (1988) | Probabilistic belief update with evidence |
+| 12 | **SIR Contagion** | Kermack & McKendrick (1927) | Epidemic-like opinion spread |
 
 **Cross-cutting Mechanisms:**
 - **Confirmation Bias** — opposing propaganda arrives attenuated based on current position.
 - **Bipolar Range [-1,1]** — active rejection has direct and symmetrical expression with support.
 - **Narrative B** — enables competitive contagion between two simultaneous narratives.
+- **Strategic Layer (Game Theory)** — payoff-based force biases agents toward cooperation or defection.
 """,
         "range_guide_content": """
 | Situation | Range | Why |
@@ -201,11 +205,15 @@ STRINGS = {
 | 7 | **Umbral heterogéneo** | Granovetter (1978) | Cascadas sociales |
 | 8 | **Homofilia** | Axelrod (1997) | Grupos convergen por similitud |
 | 9 | **Replicador** | Taylor & Jonker (1978) | Presión evolutiva entre estrategias de grupo |
+| 10 | **Equilibrio de Nash** | Nash (1950) | Grupos próximos en equilibrio de coordinación |
+| 11 | **Red Bayesiana** | Pearl (1988) | Actualización probabilística de creencias |
+| 12 | **Contagio SIR** | Kermack & McKendrick (1927) | Difusión de opiniones tipo epidemia |
 
 **Mecanismos transversales:**
 - **Sesgo de confirmación** — propaganda contraria llega atenuada según la posición actual
 - **Rango bipolar [-1,1]** — rechazo activo tiene expresión directa y simétrica con el apoyo
 - **Narrativa B** — habilita el contagio competitivo entre dos narrativas simultáneas
+- **Capa Estratégica (Teoría de Juegos)** — fuerza basada en pagos que sesga a los agentes hacia cooperación o defección
 """,
         "range_guide_content": """
 | Situación | Rango | Por qué |

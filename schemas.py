@@ -35,7 +35,8 @@ class Intervention(BaseModel):
     model_name: str = Field(
         description=(
             "Nombre del modelo: 'lineal', 'umbral', 'memoria', 'backlash', "
-            "'polarizacion', 'hk', 'contagio_competitivo', 'umbral_heterogeneo' u 'homofilia'"
+            "'polarizacion', 'hk', 'contagio_competitivo', 'umbral_heterogeneo', "
+            "'homofilia', 'replicador', 'nash', 'bayesiano' o 'sir'"
         )
     )
     parameters: Dict[str, Any] = Field(
