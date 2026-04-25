@@ -16,12 +16,15 @@ from i18n import t
 from social_architect import buscar_estrategia_inversa
 from visualizations import generate_social_network_viz
 from simulator import (
+    BEYONDSIGHT_EMPIRICAL_MASTER,
+    BEYONDSIGHT_RUNTIME_PARAMS,
     DEFAULT_CONFIG,
     DEFAULT_PAYOFF_MATRIX,
     DESCRIPCIONES_REGLAS,
     NOMBRES_REGLAS,
     PROVEEDORES,
     RANGOS_DISPONIBLES,
+    apply_empirical_profile,
     get_graph_metrics,
     resumen_historial,
     simular,
@@ -405,6 +408,31 @@ with st.sidebar:
                 opinion0 = social_mean
 
     st.markdown("---")
+    st.markdown("#### 🧪 Perfil Empírico" if lang == "es" else "#### 🧪 Empirical Profile")
+    activar_empirico = st.toggle(
+        "Aplicar calibración empírica (v{})".format(BEYONDSIGHT_EMPIRICAL_MASTER["meta"]["version"])
+        if lang == "es"
+        else "Apply empirical calibration (v{})".format(BEYONDSIGHT_EMPIRICAL_MASTER["meta"]["version"]),
+        value=False,
+        help=(
+            "Aplica los índices de calibración empírica consolidados (redes, temporales, "
+            "teoría de juegos) normalizados al rango [-1, 1]."
+            if lang == "es"
+            else "Applies consolidated empirical calibration indices (network dynamics, "
+            "temporal effects, game theory) normalised to [-1, 1]."
+        ),
+    )
+    if activar_empirico:
+        rp = BEYONDSIGHT_RUNTIME_PARAMS
+        st.caption(
+            f"λ social={rp['social_influence_lambda']} · "
+            f"T caos={rp['temperature']} · "
+            f"atractor={rp['attractor_depth']} · "
+            f"payoff cc={rp['payoff_coordination']} · "
+            f"payoff dd={rp['payoff_defection']}"
+        )
+
+    st.markdown("---")
     correr = st.button(t("run_simulation", lang))
 
 
@@ -438,6 +466,8 @@ with tab1:
             config_run["dt"]                = dt_cfg
         if activar_strategic:
             config_run["strategic"] = strategic_cfg_ui
+        if activar_empirico:
+            config_run = apply_empirical_profile(config_run)
 
         estado_inicial = {
             "opinion":          opinion0,
