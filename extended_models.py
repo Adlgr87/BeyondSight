@@ -25,8 +25,10 @@ try:
     # pgmpy >= 1.1.0 renamed BayesianNetwork → DiscreteBayesianNetwork
     try:
         from pgmpy.models import DiscreteBayesianNetwork as BayesianNetwork
+        log.debug("[ExtModels] pgmpy >= 1.1.0 detectado — usando DiscreteBayesianNetwork.")
     except ImportError:
         from pgmpy.models import BayesianNetwork  # type: ignore[assignment]
+        log.debug("[ExtModels] pgmpy < 1.1.0 detectado — usando BayesianNetwork (legacy).")
     from pgmpy.factors.discrete import TabularCPD
     from pgmpy.inference import VariableElimination
     PGMPY_AVAILABLE = True
