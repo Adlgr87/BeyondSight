@@ -1624,6 +1624,84 @@ def resumen_historial(historial: list[dict], config: dict | None = None) -> dict
 
 
 # ============================================================
+# CHECKPOINTING y RECOVERY
+# ============================================================
+
+def save_checkpoint(historial: list[dict], filepath: str | Path) -> None:
+    """
+    Saves simulation history to a JSON checkpoint file for later recovery.
+
+    Only JSON-serializable fields are preserved; non-serializable values
+    (numpy arrays, etc.) are converted to Python native types where possible
+    or dropped with a warning.
+
+    Args:
+        historial: List of state dictionaries from :func:`simular`.
+        filepath: Destination path for the checkpoint file.
+    """
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    def _make_serializable(obj: Any) -> Any:
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, dict):
+            return {k: _make_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_make_serializable(v) for v in obj]
+        if isinstance(obj, set):
+            return sorted(_make_serializable(v) for v in obj)
+        if not isinstance(obj, (str, int, float, bool, type(None))):
+            log.warning(
+                "save_checkpoint: tipo no serializable ignorado: %s=%r",
+                type(obj).__name__,
+                obj,
+            )
+            return None
+        return obj
+
+    serializable = _make_serializable(historial)
+    with filepath.open("w", encoding="utf-8") as fh:
+        json.dump({"version": 1, "historial": serializable}, fh, ensure_ascii=False, indent=2)
+    log.info(f"Checkpoint guardado: {filepath} ({len(historial)} pasos)")
+
+
+def load_checkpoint(filepath: str | Path) -> list[dict]:
+    """
+    Loads a simulation history from a JSON checkpoint file.
+
+    Args:
+        filepath: Path to the checkpoint file previously saved by
+            :func:`save_checkpoint`.
+
+    Returns:
+        List of state dictionaries (historial) that can be passed directly
+        to :func:`resumen_historial` or used as the base for continued
+        simulation.
+
+    Raises:
+        FileNotFoundError: If *filepath* does not exist.
+        ValueError: If the file format is unrecognised or corrupted.
+    """
+    filepath = Path(filepath)
+    if not filepath.exists():
+        raise FileNotFoundError(f"Checkpoint no encontrado: {filepath}")
+    with filepath.open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict) or "historial" not in data:
+        raise ValueError(f"Formato de checkpoint inválido: {filepath}")
+    historial = data["historial"]
+    if not isinstance(historial, list):
+        raise ValueError(f"Campo 'historial' debe ser una lista: {filepath}")
+    log.info(f"Checkpoint cargado: {filepath} ({len(historial)} entradas)")
+    return historial
+
+
+# ============================================================
 # MÉTRICAS DE GRAFO (NetworkX) — para el Arquitecto Social
 # ============================================================
 
