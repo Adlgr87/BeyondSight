@@ -87,6 +87,25 @@ A diferencia de simulaciones puramente numéricas, BeyondSight utiliza un LLM (c
 
 **Conexión Académica:** El enfoque de BeyondSight resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo agentes inteligentes forman opiniones en redes.
 
+### Base de Calibración Empírica
+
+Modelar fenómenos sociales complejos requiere anclar las simulaciones en parámetros reales y medibles.  
+Académicamente, la psicología, la ciencia política y la teoría de redes proporcionan los cimientos de esta base empírica.  
+Juntos, más de 40 estudios revisados por pares respaldan cada parámetro, con metadatos de varianza cultural incluidos.  
+Operar con dinámicas de opinión aisladas de datos empíricos produce resultados matemáticamente elegantes pero sociológicamente huecos.  
+Radicar el simulador en estos índices de calibración lo transforma de laboratorio teórico a herramienta de investigación aplicada.  
+Indicadores de deriva algorítmica, influencia parasocial, sesgo de confirmación, decaimiento temporal y pagos de teoría de juegos están precargados.  
+Todos ellos conforman una base empírica viva que los investigadores pueden ampliar añadiendo parámetros o actualizando varianzas culturales.  
+Ya integrados, estos parámetros convergen en un espectro bipolar normalizado listo para informar cada paso de simulación.  
+Resulta posible consultar el diccionario maestro en tiempo de ejecución para inspeccionar fuentes, citas y niveles de confianza por parámetro.  
+El anclaje empírico impide que el simulador derive hacia la especulación pura, manteniendo sus resultados interpretables y falsificables.  
+Proporcionar esta capa de responsabilidad empírica es lo que distingue a BeyondSight de un simple sandbox matemático.  
+Otras comunidades culturales — nórdica, del sur de Asia, de Medio Oriente — recibirán estimaciones localizadas en versiones futuras.  
+Restantes brechas están marcadas con la etiqueta `pending_empirical_data`, haciendo explícitos los límites del conocimiento actual.  
+Transparencia sobre la incertidumbre es, en última instancia, la forma más honesta de modelado científico.
+
+El diccionario maestro (`empirical_calibration.py`) consolida 43 parámetros que abarcan dinámica de redes, decaimiento temporal y pagos de teoría de juegos, todos normalizados al espectro bipolar `[-1.0, 1.0]` utilizado por todas las reglas de simulación. Se rastrean seis bloques culturales — latino, anglosajón, asiático oriental, del sur de Asia, de Medio Oriente y nórdico — y cada parámetro puede llevar valores de varianza específicos por bloque. Los índices de calibración se cargan al inicio mediante `empirical_config.py`, que expone el diccionario maestro y un indicador `EMPIRICAL_BASE_LOADED` para los consumidores posteriores. Los parámetros sin consenso empírico se etiquetan explícitamente como `pending_empirical_data`.
+
 ## Motor de Paisaje Energético
 
 El **Motor de Paisaje Energético** de BeyondSight modela la dinámica social como un sistema físico donde la opinión de cada agente evoluciona según una ecuación diferencial estocástica de Langevin:
@@ -227,6 +246,8 @@ BeyondSight/
 ├── .gitignore
 ├── app.py                        # Interfaz Streamlit
 ├── cache_manager.py              # Caché RAM + SQLite para paisajes sociales
+├── empirical_calibration.py      # Diccionario maestro de calibración empírica (43 parámetros)
+├── empirical_config.py           # Cargador de calibración — indicador EMPIRICAL_BASE_LOADED
 ├── energy_engine.py              # Motor de dinámica de Langevin (acelerado con Numba)
 ├── energy_runner.py              # Orquestador de simulaciones Langevin
 ├── energy_schemas.py             # Esquemas Pydantic v2 para EnergyConfig
