@@ -10,6 +10,8 @@ pinned: false
 
 # BeyondSight
 
+![Build Status](https://img.shields.io/github/actions/workflow/status/Adlgr87/BeyondSight/ci.yml?branch=main)
+![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
 [![License: PPL 3.0](https://img.shields.io/badge/License-PROSPERITY_PUBLIC_V3.0-blue.svg)](https://prosperitylicense.com)
 [![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
 [![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
