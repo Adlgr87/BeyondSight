@@ -13,6 +13,7 @@ pinned: false
 [![License: PPL 3.0](https://img.shields.io/badge/License-PROSPERITY_PUBLIC_V3.0-blue.svg)](https://prosperitylicense.com)
 [![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
 [![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
+[![PVU Validación](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
 
 ![BeyondSight Demo](docs/beyondsight_mockup.png)
 
@@ -230,14 +231,61 @@ El `SocialEnergyEngine` en `energy_engine.py` usa **Numba** para compilar en JIT
 
 El toggle **⚡ Paralelizar con Dask** activa `simular_multiples_dask()`, que envuelve cada una de las N simulaciones en una tarea `dask.delayed` y las ejecuta de forma concurrente en todos los núcleos CPU disponibles. Para N=100 simulaciones, esto típicamente proporciona una aceleración de 3–8× en máquinas multi-núcleo. Hace fallback a `simular_multiples()` secuencial cuando Dask no está disponible.
 
+## Protocolo de Uso Validado (PVU-BS)
+
+BeyondSight incluye un **protocolo de validación formal** que establece el estándar mínimo de evidencia para afirmar que el sistema ofrece desempeño predictivo validado sobre datos reales de dinámica de opinión.
+
+### Conceptos clave
+
+| Concepto | Descripción |
+|---------|-------------|
+| **Caso independiente** | Tupla `{red, serie_temporal, intervenciones, metadatos}` donde las redes comparten < 10 % de nodos y las ventanas temporales no coinciden con shocks globales no modelados. Los casos que comparten un confundidor reciben un `cluster_id`. |
+| **Variable objetivo** | Compuesta: **Índice de Polarización P(t)** (varianza + extremidad) + **Habilidad en Puntos de Giro** (F1 en transiciones de régimen). |
+| **Anti-leakage** | Las métricas del test nunca deben verse antes de congelar la configuración del modelo. Reglas completas en [docs/validation/PVU_BeyondSight_ES.md](docs/validation/PVU_BeyondSight_ES.md). |
+| **Estadística** | Test de Diebold–Mariano + corrección **Holm–Bonferroni** para múltiples baselines × casos. Los tamaños de efecto (ΔMAE, ΔRMSE, TPS F1) son obligatorios junto con los p-valores. |
+| **Muestra vs real** | `datasets/pvu_cases/sample_case_*` son **sintéticos** — solo para pruebas del pipeline. La validación PVU real requiere N ≥ 10 casos independientes del mundo real. |
+
+### Ejecutar el benchmark
+
+```bash
+# Modo offline (sin clave de API — por defecto en CI):
+PYTHONHASHSEED=42 python -m benchmarks.runner \
+    --cases datasets/pvu_cases --offline \
+    --out reports/validation/ci --seed 42
+
+# Modo LLM (requiere OPENROUTER_API_KEY o OPENAI_API_KEY):
+PYTHONHASHSEED=42 python -m benchmarks.runner \
+    --cases datasets/pvu_cases --llm \
+    --out reports/validation/llm_run --seed 42
+```
+
+Documentación completa del protocolo: [Español](docs/validation/PVU_BeyondSight_ES.md) · [English](docs/validation/PVU_BeyondSight_EN.md)
+
+---
+
 ## Estructura del Proyecto
 
 ```
 BeyondSight/
+├── benchmarks/                   # Runner offline de benchmark PVU-BS
+│   ├── runner.py                 # Punto de entrada CLI (python -m benchmarks.runner)
+│   ├── baselines.py              # Naive, MA, AR(1), Régimen aleatorio
+│   ├── metrics.py                # MAE/RMSE/MAPE, Diebold–Mariano, Holm–Bonferroni
+│   ├── turning_points.py         # Detección de puntos de giro y scoring F1
+│   └── io.py                     # Cargador de casos PVU
+├── configs/
+│   └── pvu.yaml                  # Configuración del runner (ratios, umbrales, semillas)
+├── datasets/
+│   └── pvu_cases/                # Carpetas de casos PVU (sample_case_001, sample_case_002, …)
+├── docs/
+│   └── validation/               # Protocolo PVU-BS bilingüe y plantillas (EN/ES)
+├── reports/
+│   └── validation/               # Salidas del benchmark (metrics.json, report.md)
 ├── tests/                        # Pruebas unitarias e integración
 │   ├── test_energy_core.py       # Suite de pruebas del motor energético (42 tests)
 │   ├── test_game_theory.py       # Pruebas de la capa de Teoría de Juegos estratégica
 │   ├── test_integration_llm.py   # Pruebas de integración del selector LLM
+│   ├── test_pvu_runner.py        # Pruebas del runner de benchmark PVU
 │   ├── test_simulator.py         # Pruebas del núcleo simulador
 │   ├── test_social_architect.py
 │   └── test_visualizations.py
