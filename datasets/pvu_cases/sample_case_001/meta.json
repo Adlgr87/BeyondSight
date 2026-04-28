@@ -1,0 +1,12 @@
+{
+  "id": "sample_case_001",
+  "domain": "online_community",
+  "description": "Synthetic polarization dynamics — bipolar community (Group A vs Group B) over 90 days.",
+  "source": "synthetic",
+  "language": "multilingual",
+  "cluster_id": "cluster_synth_A",
+  "granularity": "daily",
+  "license": "CC0-1.0",
+  "n_timesteps": 90,
+  "note": "Generated for CI bootstrap. Replace with real cases for production PVU."
+}
