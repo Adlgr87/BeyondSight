@@ -1,0 +1,11 @@
+{
+  "case_id": "sample_case_001",
+  "domain": "political_opinion",
+  "source": "synthetic",
+  "network_type": "watts_strogatz",
+  "cluster_id": "cluster_A",
+  "granularity": "daily",
+  "n_timesteps": 60,
+  "license": "CC0",
+  "note": "Synthetic case \u2014 NOT for real PVU validation. Illustrates political polarization event."
+}
