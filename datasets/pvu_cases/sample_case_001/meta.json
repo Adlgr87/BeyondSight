@@ -1,0 +1,20 @@
+{
+  "case_id": "sample_case_001",
+  "description": "Synthetic political polarization scenario \u2014 slow rise then decline (CI sample)",
+  "source": "synthetic",
+  "community_id": "synth_politics_001",
+  "cluster_id": null,
+  "shock_tag": null,
+  "domain": "politics",
+  "language": "en",
+  "date_range": [
+    "2023-01-01",
+    "2023-03-01"
+  ],
+  "granularity": "daily",
+  "n_agents_proxy": 200,
+  "opinion_range": "probabilistic",
+  "license": "CC0",
+  "is_synthetic": true,
+  "notes": "Synthetic sample for CI pipeline testing. Not for scientific validation."
+}

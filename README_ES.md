@@ -266,6 +266,33 @@ BeyondSight/
 └── visualizations.py             # Ayudantes de visualización de red
 ```
 
+## Validación / PVU-BS
+
+BeyondSight incluye un **Paquete de Validación Reproducible (PVU-BS)** — un protocolo formal para comparar BeyondSight contra baselines antes de realizar cualquier afirmación científica.
+
+[![PVU Validation](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
+
+### Ejecutar el benchmark offline localmente
+
+```bash
+# Correr benchmark PVU offline (sin claves API)
+python -m benchmarks.runner --cases datasets/pvu_cases --offline --out reports/validation/local
+
+# Ver los resultados
+cat reports/validation/local/report.md
+```
+
+### Documentación
+
+- 📋 [Protocol (EN)](docs/validation/PVU_BeyondSight_EN.md) / [Protocolo (ES)](docs/validation/PVU_BeyondSight_ES.md)
+- 📁 [Case File Specification (EN)](docs/validation/pvu_case_spec_EN.md) / [(ES)](docs/validation/pvu_case_spec_ES.md)
+- 📝 [Pre-registration Template (EN)](docs/validation/preregistration_template_EN.md) / [(ES)](docs/validation/preregistration_template_ES.md)
+- 📊 [Validation Report Template (EN)](docs/validation/validation_report_template_EN.md) / [(ES)](docs/validation/validation_report_template_ES.md)
+
+> ⚠️ Los 3 casos de ejemplo en `datasets/pvu_cases/` son **sintéticos** y no constituyen validación científica. Una validación real requiere N ≥ 10 casos independientes. Ver el protocolo para más detalles.
+
+---
+
 ## Licencia Ética
 
 Este proyecto está bajo la **Prosperity Public License 3.0.0**.

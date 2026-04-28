@@ -21,3 +21,13 @@ nav:
   - Home: index.md
   - API Reference: api.md
   - Spanish Version: README_ES.md
+  - Validation / PVU-BS:
+    - Overview: validation/README.md
+    - Protocol (EN): validation/PVU_BeyondSight_EN.md
+    - Protocolo (ES): validation/PVU_BeyondSight_ES.md
+    - Case Specification (EN): validation/pvu_case_spec_EN.md
+    - Especificación de Casos (ES): validation/pvu_case_spec_ES.md
+    - Pre-registration Template (EN): validation/preregistration_template_EN.md
+    - Plantilla Pre-registro (ES): validation/preregistration_template_ES.md
+    - Validation Report Template (EN): validation/validation_report_template_EN.md
+    - Plantilla Reporte de Validación (ES): validation/validation_report_template_ES.md
