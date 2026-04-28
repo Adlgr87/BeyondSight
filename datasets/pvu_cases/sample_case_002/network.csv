@@ -1,0 +1,10 @@
+node_a,node_b,weight,period
+trader_0000,trader_0001,32,all
+trader_0000,trader_0003,41,all
+trader_0000,trader_0005,25,all
+trader_0001,trader_0002,47,all
+trader_0001,trader_0003,12,all
+trader_0002,trader_0003,21,all
+trader_0002,trader_0005,5,all
+trader_0003,trader_0005,9,all
+trader_0004,trader_0005,47,all

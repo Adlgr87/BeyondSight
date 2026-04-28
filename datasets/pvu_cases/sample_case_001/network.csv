@@ -1,0 +1,13 @@
+node_a,node_b,weight,period
+node_0000,node_0001,11,all
+node_0000,node_0002,10,all
+node_0000,node_0003,16,all
+node_0000,node_0005,16,all
+node_0001,node_0002,19,all
+node_0001,node_0004,8,all
+node_0001,node_0005,7,all
+node_0001,node_0006,4,all
+node_0001,node_0007,9,all
+node_0002,node_0005,1,all
+node_0005,node_0006,19,all
+node_0005,node_0007,12,all

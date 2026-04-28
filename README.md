@@ -390,6 +390,33 @@ BeyondSight/
 └── visualizations.py             # Network visualization helpers
 ```
 
+## Validation / PVU-BS
+
+BeyondSight includes a **Reproducible Validation Package (PVU-BS)** — a formal protocol for benchmarking BeyondSight against baselines before making any scientific claim.
+
+[![PVU Validation](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
+
+### Run the offline benchmark locally
+
+```bash
+# Run PVU offline benchmark (no API keys required)
+python -m benchmarks.runner --cases datasets/pvu_cases --offline --out reports/validation/local
+
+# View the results
+cat reports/validation/local/report.md
+```
+
+### Documentation
+
+- 📋 [Protocol (EN)](docs/validation/PVU_BeyondSight_EN.md) / [Protocolo (ES)](docs/validation/PVU_BeyondSight_ES.md)
+- 📁 [Case File Specification (EN)](docs/validation/pvu_case_spec_EN.md) / [(ES)](docs/validation/pvu_case_spec_ES.md)
+- 📝 [Pre-registration Template (EN)](docs/validation/preregistration_template_EN.md) / [(ES)](docs/validation/preregistration_template_ES.md)
+- 📊 [Validation Report Template (EN)](docs/validation/validation_report_template_EN.md) / [(ES)](docs/validation/validation_report_template_ES.md)
+
+> ⚠️ The 3 sample cases in `datasets/pvu_cases/` are **synthetic** and do not constitute scientific validation. A real validation requires N ≥ 10 independent cases. See the protocol for details.
+
+---
+
 ## Security
 
 API keys can be managed via environment variables. Copy `.env.example` to `.env` and fill in your keys:

@@ -1,0 +1,43 @@
+# PVU-BS Benchmark Configuration
+# Used by: python -m benchmarks.runner --cases datasets/pvu_cases --offline --out reports/validation/ci
+# Reference: docs/validation/PVU_BeyondSight_EN.md
+
+# ── Reproducibility ───────────────────────────────────────────────────────────
+seed: 42                    # numpy and random seed; also pass PYTHONHASHSEED=42 externally
+
+# ── Data splits (chronological) ───────────────────────────────────────────────
+train_frac: 0.60            # fraction of steps for training
+val_frac:   0.20            # fraction of steps for validation; remainder = test
+# test_frac: 0.20           # (implicit: 1 - train_frac - val_frac)
+
+# ── Forecast settings ─────────────────────────────────────────────────────────
+horizon: 1                  # forecast horizon in steps (h=1 for one-step-ahead)
+
+# ── Target variable ───────────────────────────────────────────────────────────
+target_column: polarization # column in timeseries.csv used as P(t)
+theta_ext: 0.6              # threshold for "mass at extremes" (|opinion| > theta_ext)
+
+# ── Turning-point detection ───────────────────────────────────────────────────
+turning_points:
+  delta_min: 0.05           # minimum amplitude to count as a turning point
+  gap_min: 3                # minimum steps between consecutive turning points
+  tau: 2                    # tolerance window for matching predicted vs. true TPs
+
+# ── Baseline parameters ───────────────────────────────────────────────────────
+baselines:
+  moving_average:
+    window: 5
+  random_regime:
+    n_regimes: 3
+  degroot_only:
+    self_weight: 0.7
+
+# ── Statistical tests ─────────────────────────────────────────────────────────
+statistics:
+  alpha: 0.05               # significance level before multiple-comparison adjustment
+  correction: holm           # "holm" (Holm-Bonferroni) or "fdr" (Benjamini-Hochberg)
+  primary_baseline: ar1      # baseline used in the primary Diebold-Mariano test
+
+# ── Mode ─────────────────────────────────────────────────────────────────────
+# Override via CLI: --offline (default) or --llm
+mode: offline

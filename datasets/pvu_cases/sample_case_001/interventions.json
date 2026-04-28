@@ -1,0 +1,18 @@
+[
+  {
+    "t": 10,
+    "date": "2023-01-11",
+    "label": "Policy announcement",
+    "type": "synthetic",
+    "magnitude": 0.3,
+    "description": "Synthetic policy event"
+  },
+  {
+    "t": 38,
+    "date": "2023-02-08",
+    "label": "Media correction",
+    "type": "synthetic",
+    "magnitude": 0.2,
+    "description": "Synthetic media event causing polarization decline"
+  }
+]

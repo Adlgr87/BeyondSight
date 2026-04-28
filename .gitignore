@@ -13,3 +13,6 @@ archive/
 .env
 leads.csv
 landscapes_cache.db
+# PVU validation run outputs (keep .gitkeep but ignore actual run artefacts)
+reports/validation/*/
+!reports/validation/.gitkeep
