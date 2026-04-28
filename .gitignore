@@ -13,3 +13,6 @@ archive/
 .env
 leads.csv
 landscapes_cache.db
+
+# PVU CI report artifacts (uploaded via actions/upload-artifact)
+reports/validation/ci/

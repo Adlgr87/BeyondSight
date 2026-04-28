@@ -1,0 +1,41 @@
+# BeyondSight — PVU runner configuration
+# See docs/validation/PVU_BeyondSight_EN.md for protocol details.
+
+split:
+  train: 0.60
+  val: 0.20
+  test: 0.20
+
+reproducibility:
+  seed: 42
+  pythonhashseed: "0"
+
+metrics:
+  - mae
+  - rmse
+  - mape
+  - directional_accuracy
+  - turning_point_f1
+  - turning_point_timing_error
+
+baselines:
+  - naive
+  - moving_average
+  - ar1
+  - random_regime
+  - degroot
+
+thresholds:
+  bronze:
+    mae_vs_naive: 0.10        # ≥10 % improvement over naïve
+  silver:
+    mae_vs_naive: 0.20
+    turning_point_f1: 0.60
+  gold:
+    mae_vs_naive: 0.30
+    turning_point_f1: 0.75
+    p_adj_vs_ar1: 0.05        # Holm-corrected Diebold-Mariano p-value
+
+output:
+  report_format: markdown
+  save_plots: true

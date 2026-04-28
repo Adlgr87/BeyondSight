@@ -1,0 +1,60 @@
+name: PVU Validation (offline)
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "offline or llm"
+        required: true
+        default: "offline"
+      cases:
+        description: "Path to cases folder"
+        required: true
+        default: "datasets/pvu_cases"
+
+jobs:
+  pvu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: PVU run (offline by default)
+        env:
+          PYTHONHASHSEED: "0"
+        run: |
+          MODE="${{ github.event.inputs.mode }}"
+          if [ -z "$MODE" ]; then MODE="offline"; fi
+
+          CASES="${{ github.event.inputs.cases }}"
+          if [ -z "$CASES" ]; then CASES="datasets/pvu_cases"; fi
+
+          if [ "$MODE" = "llm" ]; then
+            echo "Running PVU in LLM mode"
+            python -m benchmarks.runner --cases "$CASES" --llm --out reports/validation/ci
+          else
+            echo "Running PVU in OFFLINE mode"
+            python -m benchmarks.runner --cases "$CASES" --offline --out reports/validation/ci
+          fi
+
+      - name: Upload PVU report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pvu-report
+          path: reports/validation/ci

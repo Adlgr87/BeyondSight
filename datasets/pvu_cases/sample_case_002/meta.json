@@ -1,0 +1,12 @@
+{
+  "id": "sample_case_002",
+  "domain": "social_network",
+  "description": "Synthetic opinion convergence dynamics — gradual DeGroot-style consensus with noise.",
+  "source": "synthetic",
+  "language": "multilingual",
+  "cluster_id": "cluster_synth_B",
+  "granularity": "weekly",
+  "license": "CC0-1.0",
+  "n_timesteps": 52,
+  "note": "Generated for CI bootstrap. Replace with real cases for production PVU."
+}
