@@ -13,3 +13,6 @@ archive/
 .env
 leads.csv
 landscapes_cache.db
+# PVU benchmark run outputs (generated; not committed)
+reports/validation/ci/
+reports/validation/llm_run/

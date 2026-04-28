@@ -1,0 +1,42 @@
+# PVU-BS Runner Configuration
+# ─────────────────────────────────────────────────────────────────
+# This file controls the offline benchmark runner.
+# Edit thresholds and split ratios here; do NOT hard-code them in code.
+
+# ── Data ───────────────────────────────────────────────────────────
+cases_dir: datasets/pvu_cases
+output_dir: reports/validation/ci
+
+# ── Reproducibility ────────────────────────────────────────────────
+seed: 42                  # PYTHONHASHSEED should match this value in CI
+
+# ── Split ratios (fractions of total timesteps per case) ───────────
+train_ratio: 0.70         # 70 % training
+# Remaining 30 % is the held-out test set.
+# For real PVU runs add a val_ratio and adjust accordingly.
+
+# ── Turning-point detection ────────────────────────────────────────
+turning_points:
+  order: 2                # neighbour half-window for local extrema
+  min_prominence: 0.02    # min abs height diff to count as turning point
+  tolerance: 3            # ±steps within which a prediction counts as match
+
+# ── Statistical thresholds ────────────────────────────────────────
+statistics:
+  alpha: 0.05             # significance level (Holm–Bonferroni adjusted)
+  dm_horizon: 1           # Diebold–Mariano forecast horizon h
+
+# ── PVU validation levels (informational; not enforced in offline CI) ──
+pvu_levels:
+  bronze:
+    min_cases: 10
+    dm_vs_naive: "p_adj < 0.05"
+    effect_size: "delta_mae > 0"
+  silver:
+    min_cases: 20
+    dm_vs_all_baselines: "p_adj < 0.05"
+    tp_f1: ">= 0.50"
+  gold:
+    min_cases: 30
+    external_replication: true
+    tp_f1: ">= 0.70"
