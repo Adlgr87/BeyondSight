@@ -18,6 +18,9 @@ on:
         required: false
         default: "datasets/pvu_cases"
 
+permissions:
+  contents: read
+
 jobs:
   pvu:
     runs-on: ubuntu-latest
