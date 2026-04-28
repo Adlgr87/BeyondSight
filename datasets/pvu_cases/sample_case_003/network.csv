@@ -1,0 +1,11 @@
+node_a,node_b,weight,period
+user_0000,user_0001,4,all
+user_0000,user_0002,11,all
+user_0000,user_0003,10,all
+user_0000,user_0004,9,all
+user_0001,user_0002,12,all
+user_0001,user_0003,1,all
+user_0001,user_0004,2,all
+user_0002,user_0003,8,all
+user_0002,user_0004,12,all
+user_0003,user_0004,7,all

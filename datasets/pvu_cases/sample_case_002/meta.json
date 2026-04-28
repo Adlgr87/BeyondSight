@@ -1,0 +1,20 @@
+{
+  "case_id": "sample_case_002",
+  "description": "Synthetic finance sentiment polarization \u2014 high-volatility peak (CI sample)",
+  "source": "synthetic",
+  "community_id": "synth_finance_002",
+  "cluster_id": null,
+  "shock_tag": null,
+  "domain": "finance",
+  "language": "en",
+  "date_range": [
+    "2023-01-01",
+    "2023-03-01"
+  ],
+  "granularity": "daily",
+  "n_agents_proxy": 500,
+  "opinion_range": "probabilistic",
+  "license": "CC0",
+  "is_synthetic": true,
+  "notes": "Synthetic sample for CI pipeline testing. Not for scientific validation."
+}
