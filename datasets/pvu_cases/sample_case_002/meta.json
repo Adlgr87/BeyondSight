@@ -1,0 +1,11 @@
+{
+  "case_id": "sample_case_002",
+  "domain": "social_media_cascade",
+  "source": "synthetic",
+  "network_type": "barabasi_albert",
+  "cluster_id": "cluster_B",
+  "granularity": "daily",
+  "n_timesteps": 52,
+  "license": "CC0",
+  "note": "Synthetic case \u2014 NOT for real PVU validation. Illustrates viral cascade with turning point."
+}

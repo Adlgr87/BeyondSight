@@ -1,0 +1,12 @@
+[
+  {
+    "date": "2023-01-21",
+    "label": "viral_content_spread",
+    "source": "synthetic"
+  },
+  {
+    "date": "2023-02-05",
+    "label": "saturation_plateau",
+    "source": "synthetic"
+  }
+]

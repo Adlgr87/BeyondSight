@@ -1,0 +1,17 @@
+[
+  {
+    "date": "2023-01-29",
+    "label": "political_event_start",
+    "source": "synthetic"
+  },
+  {
+    "date": "2023-02-08",
+    "label": "peak_polarization",
+    "source": "synthetic"
+  },
+  {
+    "date": "2023-02-18",
+    "label": "deescalation",
+    "source": "synthetic"
+  }
+]

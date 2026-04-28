@@ -13,6 +13,7 @@ pinned: false
 [![License: PPL 3.0](https://img.shields.io/badge/License-PROSPERITY_PUBLIC_V3.0-blue.svg)](https://prosperitylicense.com)
 [![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
 [![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
+[![PVU Validation](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
 
 ![BeyondSight Demo](docs/beyondsight_mockup.png)
 
@@ -354,14 +355,61 @@ The `SocialEnergyEngine` in `energy_engine.py` uses **Numba** to JIT-compile the
 
 The **⚡ Paralelizar con Dask** toggle in the UI activates `simular_multiples_dask()`, which wraps each of the N simulations in a `dask.delayed` task and executes them concurrently across all av[...]  
 
+## Protocol of Validated Use (PVU-BS)
+
+BeyondSight ships with a formal **validation protocol** that establishes the minimum evidence standard for claiming validated predictive performance on real-world opinion dynamics data.
+
+### Key concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Independent case** | A `{network, time_series, interventions, metadata}` tuple where networks share < 10 % nodes and time windows don't overlap unmodelled global shocks. Cases sharing a confound get a `cluster_id`. |
+| **Target variable** | Compound: **Polarization Index P(t)** (variance + extremity) + **Turning-Point Skill** (F1 on regime transitions). |
+| **Anti-leakage** | Test metrics must never be seen before model config is frozen. Full rules in [docs/validation/PVU_BeyondSight_EN.md](docs/validation/PVU_BeyondSight_EN.md). |
+| **Statistics** | Diebold–Mariano test + **Holm–Bonferroni** correction for multiple baselines × cases. Effect sizes (ΔMAE, ΔRMSE, TPS F1) are mandatory alongside p-values. |
+| **Sample vs real** | `datasets/pvu_cases/sample_case_*` are **synthetic** — for pipeline testing only. Real PVU requires N ≥ 10 independent real-world cases. |
+
+### Running the benchmark
+
+```bash
+# Offline (no API key required — default in CI):
+PYTHONHASHSEED=42 python -m benchmarks.runner \
+    --cases datasets/pvu_cases --offline \
+    --out reports/validation/ci --seed 42
+
+# LLM mode (requires OPENROUTER_API_KEY or OPENAI_API_KEY):
+PYTHONHASHSEED=42 python -m benchmarks.runner \
+    --cases datasets/pvu_cases --llm \
+    --out reports/validation/llm_run --seed 42
+```
+
+Full protocol docs: [English](docs/validation/PVU_BeyondSight_EN.md) · [Español](docs/validation/PVU_BeyondSight_ES.md)
+
+---
+
 ## Project Structure
 
 ```
 BeyondSight/
+├── benchmarks/                   # PVU-BS offline benchmark runner
+│   ├── runner.py                 # CLI entry point (python -m benchmarks.runner)
+│   ├── baselines.py              # Naive, MA, AR(1), Random regime
+│   ├── metrics.py                # MAE/RMSE/MAPE, Diebold–Mariano, Holm–Bonferroni
+│   ├── turning_points.py         # Turning-point detection and F1 scoring
+│   └── io.py                     # PVU case loader
+├── configs/
+│   └── pvu.yaml                  # Runner configuration (split ratios, thresholds, seeds)
+├── datasets/
+│   └── pvu_cases/                # PVU case folders (sample_case_001, sample_case_002, …)
+├── docs/
+│   └── validation/               # Bilingual PVU-BS protocol and templates (EN/ES)
+├── reports/
+│   └── validation/               # Auto-generated benchmark outputs (metrics.json, report.md)
 ├── tests/                        # Unit and integration tests
 │   ├── test_energy_core.py       # Energy engine test suite (42 tests)
 │   ├── test_game_theory.py       # Strategic Game Theory layer tests
 │   ├── test_integration_llm.py   # LLM selector integration tests
+│   ├── test_pvu_runner.py        # PVU benchmark runner tests
 │   ├── test_simulator.py         # Simulator core tests
 │   ├── test_social_architect.py
 │   └── test_visualizations.py
