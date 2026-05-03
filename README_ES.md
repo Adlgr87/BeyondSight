@@ -304,6 +304,76 @@ El `SocialEnergyEngine` en `energy_engine.py` usa **Numba** para compilar en JIT
 
 El toggle **⚡ Paralelizar con Dask** activa `simular_multiples_dask()`, que envuelve cada una de las N simulaciones en una tarea `dask.delayed` y las ejecuta de forma concurrente en todos los núcleos CPU disponibles. Para N=100 simulaciones, esto típicamente proporciona una aceleración de 3–8× en máquinas multi-núcleo. Hace fallback a `simular_multiples()` secuencial cuando Dask no está disponible.
 
+## Simulación Masiva (millones de agentes)
+
+`massive_engine.py` implementa cuatro estrategias complementarias para simular **millones de agentes** en hardware doméstico — sin necesidad de clúster GPU.
+
+### Estrategia 1 — LOD Sociológico (Super-Agentes)
+
+Inspirado en el renderizado por Nivel de Detalle de los videojuegos: en lugar de simular N agentes individuales, el motor los agrupa en **M super-agentes** (clústeres). Solo se evolucionan M << N centros mediante las ecuaciones de Langevin; cada centro representa un grupo de agentes con perfil socio-psicológico similar.
+
+| N agentes | M clústeres (auto) | Tamaño de matriz | RAM (float64) |
+|---|---|---|---|
+| 10 000 | 100 | 100×100 | ~0.08 MB |
+| 100 000 | 316 | 316×316 | ~0.8 MB |
+| 1 000 000 | 1 000 | 1000×1000 | ~8 MB |
+
+El método `apply_shock()` permite inyectar perturbaciones externas (noticias virales, shocks económicos) que reactivan clústeres dormidos y se propagan por la red.
+
+### Estrategia 2 — Cuantización de Estado (personalidades en uint8)
+
+Los parámetros de estado se almacenan como enteros sin signo de 8 bits (0–255) en lugar de flotantes de 64 bits, reduciendo la RAM en un **87.5%** por parámetro. La precisión resultante (≈ 0.008 por unidad de rango de opinión) es suficiente para representar diferencias socialmente relevantes.
+
+```python
+# Antes: float64 — 8 bytes/parámetro
+opinion_naive = 0.857432   # 8 bytes
+
+# Después: uint8 — 1 byte/parámetro
+opinion_quant = 219         # 1 byte  → descuantizar → 0.856...
+```
+
+Combinado con LOD, la reducción neta de memoria para N=1M agentes supera el **99.99%**.
+
+### Estrategia 3 — Simulación Dirigida por Eventos (Gossip Sparsity)
+
+En la dinámica social real, no todos cambian de opinión en cada momento. La clase `ActiveSet` rastrea qué super-agentes están "despiertos" según si su estado cambió más de un umbral configurable (`sleep_threshold`).
+
+- Los agentes cuyos vecinos cambiaron significativamente se reactivan automáticamente.
+- Los agentes en consenso estable permanecen congelados — costo CPU cero hasta ser perturbados.
+- `active_history` muestra la fracción de super-agentes activos por paso.
+
+### Estrategia 4 — GPU Offloading
+
+Las operaciones matriciales se delegan a GPU cuando **CuPy** o **PyTorch+CUDA** están disponibles. El camino de fallback (Numba JIT en CPU) funciona sin configuración en cualquier máquina.
+
+### API programática
+
+```python
+from massive_engine import MassiveSimEngine
+
+engine = MassiveSimEngine(
+    N=1_000_000,
+    quantize=True,
+    event_driven=True,
+    sleep_threshold=5e-3,
+    layer_weights=(0.4, 0.3, 0.3),
+    coupling=0.3,
+    dt=0.01,
+    seed=42,
+)
+
+result = engine.run(steps=300)
+print(f"Ahorro RAM:     {result['memory_savings_pct']:.1f}%")   # ≈ 99.99%
+print(f"Opinión media:  {result['mean_opinion']:+.3f}")
+print(f"Velocidad:      {result['steps_per_second']:.0f} pasos/s")
+
+# Aplicar shock externo al 20% de la red
+engine.apply_shock(shock_value=0.4, fraction=0.2)
+result2 = engine.run(steps=100)
+```
+
+
+
 ## Protocolo de Uso Validado (PVU-BS)
 
 BeyondSight incluye un **protocolo de validación formal** que establece el estándar mínimo de evidencia para afirmar que el sistema ofrece desempeño predictivo validado sobre datos reales de dinámica de opinión.
@@ -359,6 +429,7 @@ BeyondSight/
 │   ├── test_energy_core.py       # Suite de pruebas del motor energético (42 tests)
 │   ├── test_game_theory.py       # Pruebas de la capa de Teoría de Juegos estratégica
 │   ├── test_integration_llm.py   # Pruebas de integración del selector LLM
+│   ├── test_massive_engine.py    # Suite del motor masivo (42 tests)
 │   ├── test_multilayer.py        # Suite de pruebas del motor multicapa (27 tests)
 │   ├── test_pvu_runner.py        # Pruebas del runner de benchmark PVU
 │   ├── test_simulator.py         # Pruebas del núcleo simulador
@@ -367,7 +438,7 @@ BeyondSight/
 ├── docs/                         # Fuentes de documentación MkDocs
 ├── .env.example                  # Plantilla de variables de entorno
 ├── .gitignore
-├── app.py                        # Interfaz Streamlit (3 tabs: Simulación, Arquitecto, Multicapa)
+├── app.py                        # Interfaz Streamlit (4 tabs: Simulación, Arquitecto, Multicapa, Masiva)
 ├── cache_manager.py              # Caché RAM + SQLite para paisajes sociales
 ├── empirical_calibration.py      # Diccionario maestro de calibración empírica (43 parámetros)
 ├── empirical_config.py           # Cargador de calibración — indicador EMPIRICAL_BASE_LOADED
@@ -377,6 +448,7 @@ BeyondSight/
 ├── extended_models.py            # Reglas extendidas: Nash (10), Red Bayesiana (11), SIR (12)
 ├── i18n.py                       # Ayudantes de internacionalización
 ├── langchain_workflows.py        # Cadenas LangChain para Arquitectos Social y Programático
+├── massive_engine.py             # Motor de Escala Masiva: LOD, cuantización uint8, event-driven, GPU
 ├── multilayer_engine.py          # Motor Multicapa Sociodemográfico (vector 5D + 3 capas + theta)
 ├── programmatic_architect.py     # Arquitecto Programático (arquetipos + caché + LLM)
 ├── README.md                     # Documentación (inglés)
