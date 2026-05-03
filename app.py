@@ -66,7 +66,7 @@ _STRATEGIC_PRESETS: list[dict] = [
 # PÁGINA
 # ------------------------------------------------------------
 st.set_page_config(
-    page_title="BeyondSight",
+    page_title="MASSIVE",
     page_icon="🌊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -79,7 +79,7 @@ import streamlit.components.v1 as components
 components.html("""
 <script>
   // Google Analytics / PostHog script placeholder
-  console.log('BeyondSight Analytics loaded');
+  console.log('MASSIVE Analytics loaded');
 </script>
 """, width=0, height=0)
 
@@ -161,9 +161,9 @@ section[data-testid="stSidebar"] {
 # ------------------------------------------------------------
 # HEADER
 # ------------------------------------------------------------
-st.markdown('<div class="bs-header">BeyondSight</div>', unsafe_allow_html=True)
+st.markdown('<div class="bs-header">MASSIVE</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="bs-subtitle">Simulador híbrido · Dinámica social · LLM + Núcleo numérico</div>',
+    '<div class="bs-subtitle">Mathematical Architecture for Scalable Social Interaction &amp; Virtual Engine &nbsp;·&nbsp; Many behaving as One</div>',
     unsafe_allow_html=True,
 )
 

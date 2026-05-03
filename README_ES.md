@@ -1,5 +1,5 @@
 ---
-title: BeyondSight
+title: MASSIVE
 emoji: 🌊
 colorFrom: blue
 colorTo: indigo
@@ -8,30 +8,33 @@ app_file: app.py
 pinned: false
 ---
 
-# BeyondSight
+# MASSIVE
+### Mathematical Architecture for Scalable Social Interaction & Virtual Engine
+
+> *"Many behaving as One"*
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
 [![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
 [![PVU Validación](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
 
-![BeyondSight Demo](docs/beyondsight_mockup.png)
+![MASSIVE Demo](docs/beyondsight_mockup.png)
 
-Simulador híbrido de dinámica social — Núcleo numérico + LLM como selector de régimen.
+Simulador híbrido de dinámica social — Núcleo numérico + LLM como selector de régimen. Diseñado para escalar desde un puñado de agentes hasta millones.
 
-BeyondSight cierra la brecha entre los modelos matemáticos clásicos de formación de opinión y la flexibilidad contextual de los Modelos de Lenguaje de Gran Escala (LLMs).
+MASSIVE cierra la brecha entre los modelos matemáticos clásicos de formación de opinión y la flexibilidad contextual de los Modelos de Lenguaje de Gran Escala (LLMs). Su arquitectura está concebida para mantenerse computacionalmente manejable tanto al estudiar una comunidad pequeña como al simular redes sociales a escala poblacional.
 
-En el corazón de BeyondSight se encuentra el **Arquitecto Social** — un agente LLM de ingeniería inversa que calcula la secuencia precisa de intervenciones matemáticas necesarias para llevar cualquier red social hacia el resultado deseado. En lugar de predecir hacia dónde *irá* una red, el Arquitecto Social determina exactamente *cómo llegar* adonde quieres ir.
+En el corazón de MASSIVE se encuentra el **Arquitecto Social** — un agente LLM de ingeniería inversa que calcula la secuencia precisa de intervenciones matemáticas necesarias para llevar cualquier red social hacia el resultado deseado. En lugar de predecir hacia dónde *irá* una red, el Arquitecto Social determina exactamente *cómo llegar* adonde quieres ir.
 
-Cada individuo ya no es un escalar de opinión, sino un **vector de estado multidimensional** que codifica comportamientos simultáneos — cooperación, reconocimiento de jerarquía, ingreso, acceso a información — evolucionando en paralelo sobre tres capas de red superpuestas (social, digital, económica) moduladas por atributos sociodemográficos fijos como religión, educación y edad.
+Cada individuo ya no es un escalar de opinión, sino un **vector de estado multidimensional** que codifica comportamientos simultáneos — cooperación, reconocimiento de jerarquía, ingreso, acceso a información — evolucionando en paralelo sobre tres capas de red superpuestas (social, digital, económica) moduladas por atributos sociodemográficos fijos como religión, educación y edad. A escala poblacional, los agentes se organizan en clústeres estadísticamente representativos que preservan las dinámicas sociales emergentes mientras reducen memoria y cómputo en órdenes de magnitud.
 
-## ¿Por Qué BeyondSight?
+## ¿Por Qué MASSIVE?
 
-¿Te has preguntado qué podría desencadenar una huelga masiva, o cómo un escándalo podría hundir la aprobación de un político? BeyondSight te permite simular estas dinámicas de una manera fundamentada en matemáticas pero impulsada por la intuición de la IA. No se trata solo de predecir el caos—es ayudarte a entender e incluso dirigir las mareas sociales.
+¿Te has preguntado qué podría desencadenar una huelga masiva, o cómo un escándalo podría hundir la aprobación de un político? MASSIVE te permite simular estas dinámicas de una manera fundamentada en matemáticas pero impulsada por la intuición de la IA. No se trata solo de predecir el caos—es ayudarte a entender e incluso dirigir las mareas sociales.
 
 ## Escenarios en Acción
 
-Vamos a sumergirnos en algunos escenarios hipotéticos donde BeyondSight brilla. Cubriremos tanto el **Modo Simulación** (predicción hacia adelante) como el **Arquitecto Social** (ingeniería inversa).
+Vamos a sumergirnos en algunos escenarios hipotéticos donde MASSIVE brilla. Cubriremos tanto el **Modo Simulación** (predicción hacia adelante) como el **Arquitecto Social** (ingeniería inversa).
 
 ### Escenario 1: La Huelga Laboral Inminente
 
@@ -57,7 +60,7 @@ Una protesta impulsada por redes sociales comienza pequeña (opinión 0.6 en apo
 
 - **Arquitecto Social:** Objetivo: "Amplificar el movimiento a nivel nacional." Genera intervenciones: Impulsa con contagio_competitivo para propagación narrativa, targetea influencers macro. Salida: Cronograma de "eventos virales" como temas trending, con narrativas sociológicas generadas por LLM.
 
-Estos son solo inicios—mezcla parámetros, rangos y LLMs para explorar. BeyondSight convierte modelos abstractos en insights tangibles.
+Estos son solo inicios—mezcla parámetros, rangos y LLMs para explorar. MASSIVE convierte modelos abstractos en insights tangibles.
 
 ## Fundamentos Teóricos e Investigación
 
@@ -72,7 +75,7 @@ El proyecto se inspira en modelos fundamentales de dinámica de opinión y en in
 - **Redes Co-evolutivas y Homofilia (Axelrod, 1997):** La intensidad de la influencia varía según la similitud de las opiniones, lo que genera cámaras de eco (echo chambers) endógenas.
 - **Ecuación Replicadora — Teoría de Juegos Evolutiva (Taylor & Jonker, 1978):** Las frecuencias de estrategia evolucionan según el pago relativo mediante la ODE replicadora integrada con RK45.
 - **Sesgo de Confirmación:** Un mecanismo transversal cognitivo que atenúa sistemáticamente el peso de la información contraria a la creencia actual del agente.
-- **Dinámica de Energía de Langevin:** Ecuaciones diferenciales estocásticas de inspiración física donde los agentes se mueven a través de un paisaje de energía social configurable con atractores y repulsores — el núcleo de simulación más reciente de BeyondSight.
+- **Dinámica de Energía de Langevin:** Ecuaciones diferenciales estocásticas de inspiración física donde los agentes se mueven a través de un paisaje de energía social configurable con atractores y repulsores — el núcleo de simulación de MASSIVE.
 - **Langevin Multicapa Sociodemográfica:** Extensión vectorial de la dinámica de Langevin a cinco comportamientos simultáneos por agente `(opinión, cooperación, jerarquía, ingreso, acceso_info)`, sobre tres capas de red superpuestas (social, digital, económica), con modulación de ruido por atributos demográficos fijos (religión, educación, edad, género). El potencial social multidimensional genera patrones emergentes: polarización de opiniones coexistiendo con clustering de cooperación y estratificación de jerarquía.
 
 ### Modelos Extendidos
@@ -87,9 +90,9 @@ Tres reglas de simulación adicionales (reglas 10–12 en `extended_models.py`) 
 
 ### Arquitectura Híbrida
 
-A diferencia de simulaciones puramente numéricas, BeyondSight utiliza un LLM (como Llama 3) para analizar la trayectoria histórica y decidir qué régimen matemático es sociológicamente apropiado. El selector heurístico de fallback enruta inteligentemente entre las 13 reglas disponibles (0–12) según las condiciones del estado.
+A diferencia de simulaciones puramente numéricas, MASSIVE utiliza un LLM (como Llama 3) para analizar la trayectoria histórica y decidir qué régimen matemático es sociológicamente apropiado. El selector heurístico de fallback enruta inteligentemente entre las 13 reglas disponibles (0–12) según las condiciones del estado.
 
-**Conexión Académica:** El enfoque de BeyondSight resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo agentes inteligentes forman opiniones en redes.
+**Conexión Académica:** El enfoque de MASSIVE resuena con investigaciones recientes como *"Opinion Consensus Formation Among Networked Large Language Models"* (Enero 2026), explorando cómo agentes inteligentes forman opiniones en redes.
 
 ### Base de Calibración Empírica
 
@@ -103,7 +106,7 @@ Todos ellos conforman una base empírica viva que los investigadores pueden ampl
 Ya integrados, estos parámetros convergen en un espectro bipolar normalizado listo para informar cada paso de simulación.  
 Resulta posible consultar el diccionario maestro en tiempo de ejecución para inspeccionar fuentes, citas y niveles de confianza por parámetro.  
 El anclaje empírico impide que el simulador derive hacia la especulación pura, manteniendo sus resultados interpretables y falsificables.  
-Proporcionar esta capa de responsabilidad empírica es lo que distingue a BeyondSight de un simple sandbox matemático.  
+Proporcionar esta capa de responsabilidad empírica es lo que distingue a MASSIVE de un simple sandbox matemático.  
 Otras comunidades culturales — nórdica, del sur de Asia, de Medio Oriente — recibirán estimaciones localizadas en versiones futuras.  
 Restantes brechas están marcadas con la etiqueta `pending_empirical_data`, haciendo explícitos los límites del conocimiento actual.  
 Transparencia sobre la incertidumbre es, en última instancia, la forma más honesta de modelado científico.
@@ -182,7 +185,7 @@ La configuración predeterminada de capas y atributos se puede personalizar sin 
 
 
 
-El **Motor de Paisaje Energético** de BeyondSight modela la dinámica social como un sistema físico donde la opinión de cada agente evoluciona según una ecuación diferencial estocástica de Langevin:
+El **Motor de Paisaje Energético** de MASSIVE modela la dinámica social como un sistema físico donde la opinión de cada agente evoluciona según una ecuación diferencial estocástica de Langevin:
 
 ```
 x_i(t+η) = x_i(t) − η·∇U(x_i) + η·λ·(x̄_vecinos − x_i) + √(2η·T)·ε
@@ -221,7 +224,7 @@ El **Arquitecto Programático** (`programmatic_architect.py`) incluye 8 arquetip
 
 ## Arquitecto Social (Ingeniería Inversa)
 
-BeyondSight introduce al **Arquitecto Social**, un potente agente de ingeniería inversa apoyado en un bucle *LLM-in-the-loop*. En lugar de simplemente predecir el futuro de la red, tú defines el resultado sociológico que deseas (p. ej., *"Lograr un consenso moderado y eliminar la polarización en 20 iteraciones"*), y el Arquitecto Social trabaja hacia atrás para encontrar la estrategia exacta que te lleva allí.
+MASSIVE introduce al **Arquitecto Social**, un potente agente de ingeniería inversa apoyado en un bucle *LLM-in-the-loop*. En lugar de simplemente predecir el futuro de la red, tú defines el resultado sociológico que deseas (p. ej., *"Lograr un consenso moderado y eliminar la polarización en 20 iteraciones"*), y el Arquitecto Social trabaja hacia atrás para encontrar la estrategia exacta que te lleva allí.
 
 ### Cómo Funciona
 
@@ -272,7 +275,7 @@ Este repositorio está listo para ser desplegado como un **Hugging Face Space**.
 
 ## Integración con Redes Sociales
 
-BeyondSight puede inicializar simulaciones con **datos de opinión reales** obtenidos en vivo desde Twitter/X o Reddit. Configura las credenciales en la barra lateral bajo **🌐 Datos de Redes Sociales**.
+MASSIVE puede inicializar simulaciones con **datos de opinión reales** obtenidos en vivo desde Twitter/X o Reddit. Configura las credenciales en la barra lateral bajo **🌐 Datos de Redes Sociales**.
 
 ### Twitter / X
 
@@ -304,9 +307,9 @@ El `SocialEnergyEngine` en `energy_engine.py` usa **Numba** para compilar en JIT
 
 El toggle **⚡ Paralelizar con Dask** activa `simular_multiples_dask()`, que envuelve cada una de las N simulaciones en una tarea `dask.delayed` y las ejecuta de forma concurrente en todos los núcleos CPU disponibles. Para N=100 simulaciones, esto típicamente proporciona una aceleración de 3–8× en máquinas multi-núcleo. Hace fallback a `simular_multiples()` secuencial cuando Dask no está disponible.
 
-## Simulación Masiva (millones de agentes)
+## Escala — Millones de Agentes en Hardware Doméstico
 
-`massive_engine.py` implementa cuatro estrategias complementarias para simular **millones de agentes** en hardware doméstico — sin necesidad de clúster GPU.
+`massive_engine.py` gestiona las demandas computacionales de la simulación a escala poblacional mediante cuatro estrategias integradas, permitiendo corridas con millones de agentes en un portátil — sin necesidad de clúster GPU.
 
 ### Estrategia 1 — LOD Sociológico (Super-Agentes)
 
@@ -376,7 +379,7 @@ result2 = engine.run(steps=100)
 
 ## Protocolo de Uso Validado (PVU-BS)
 
-BeyondSight incluye un **protocolo de validación formal** que establece el estándar mínimo de evidencia para afirmar que el sistema ofrece desempeño predictivo validado sobre datos reales de dinámica de opinión.
+MASSIVE incluye un **protocolo de validación formal** que establece el estándar mínimo de evidencia para afirmar que el sistema ofrece desempeño predictivo validado sobre datos reales de dinámica de opinión.
 
 ### Conceptos clave
 
@@ -409,7 +412,7 @@ Documentación completa del protocolo: [Español](docs/validation/PVU_BeyondSigh
 ## Estructura del Proyecto
 
 ```
-BeyondSight/
+MASSIVE/
 ├── benchmarks/                   # Runner offline de benchmark PVU-BS
 │   ├── runner.py                 # Punto de entrada CLI (python -m benchmarks.runner)
 │   ├── baselines.py              # Naive, MA, AR(1), Régimen aleatorio
@@ -471,4 +474,4 @@ La lógica, estructura, variables y diseño del sistema pertenecen a [Adlgr87](h
 Para consultas sobre consultoría o colaboraciones, contactar a [Adlgr87](https://github.com/Adlgr87) en GitHub.
 
 ---
-*Desarrollado con un enfoque en la interpretabilidad de la IA y el estudio de sistemas sociales complejos.*
+*Many behaving as One.*
