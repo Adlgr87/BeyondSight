@@ -76,26 +76,17 @@ class TestEmpiricalIntegration(unittest.TestCase):
         )
 
     def test_null_params_flagged(self):
-        """Los parámetros con value: null aparecen en validation_flags."""
+        """validation_flags es una lista vacía cuando todos los parámetros tienen datos empíricos.
+
+        En v1.1.0 todos los parámetros fueron completados con valores empíricos reales,
+        por lo que no hay parámetros pendientes y validation_flags debe ser vacío.
+        Si en el futuro se añaden parámetros con value: null, aparecerán aquí.
+        """
         flags = BEYONDSIGHT_RUNTIME_PARAMS["validation_flags"]
         self.assertIsInstance(flags, list, "validation_flags debe ser una lista")
-        self.assertGreater(
-            len(flags),
-            0,
-            "validation_flags debe contener al menos un parámetro pendiente",
-        )
-        # Verify that all flags contain the expected message suffix
-        for flag in flags:
-            self.assertIn(
-                "pending_empirical_data",
-                flag,
-                f"Flag '{flag}' debe contener 'pending_empirical_data'",
-            )
-        # Spot-check: at least one known null param is flagged
-        flagged_ids = [f.split(":")[0].strip() for f in flags]
-        self.assertTrue(
-            any("HOMOFILIA_RED" in fid for fid in flagged_ids),
-            "HOMOFILIA_RED (null) debe estar en validation_flags",
+        self.assertFalse(
+            flags,
+            "validation_flags debe estar vacío en v1.1.0 — todos los parámetros tienen datos empíricos",
         )
 
     def test_cultural_profile_mixed(self):
