@@ -1,5 +1,5 @@
 """
-energy_engine.py — Motor de Energía Social para BeyondSight
+energy_engine.py — Motor de Energía Social para MASSIVE
 Implementa dinámica de Langevin sobre una red social con paisaje de energía configurable.
 
 La ecuación de Langevin discreta para cada agente i es:

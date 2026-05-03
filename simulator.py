@@ -1,5 +1,5 @@
 """
-BeyondSight — Simulador híbrido de dinámica social
+MASSIVE — Simulador híbrido de dinámica social
 Núcleo numérico + LLM como selector de régimen dinámico
 
 Modelos integrados:
@@ -27,7 +27,7 @@ RANGOS DE OPINIÓN:
 PROVEEDORES LLM:
   heurístico | ollama | groq | openai | openrouter
 
-Autor: BeyondSight Research
+Autor: MASSIVE Research
 """
 
 import json
@@ -75,7 +75,7 @@ except ImportError:
 # ------------------------------------------------------------
 # LOGGING
 # ------------------------------------------------------------
-LOG_PATH = Path("beyondsight_run.log")
+LOG_PATH = Path("massive_run.log")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -84,7 +84,7 @@ logging.basicConfig(
         logging.StreamHandler(),
     ],
 )
-log = logging.getLogger("beyondsight")
+log = logging.getLogger("massive")
 
 
 # ------------------------------------------------------------

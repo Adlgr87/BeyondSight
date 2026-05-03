@@ -1,5 +1,5 @@
 """
-Tests para el Motor Multicapa Sociodemográfico de BeyondSight.
+Tests para el Motor Multicapa Sociodemográfico de MASSIVE.
 
 Cubre los 4 tests obligatorios del problema:
   1. Recuperar comportamiento original (layer_weights=[1,0,0])

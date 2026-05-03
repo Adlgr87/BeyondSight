@@ -1,5 +1,5 @@
 """
-BeyondSight — Base Empírica de Calibración
+MASSIVE — Base Empírica de Calibración
 Parámetros derivados de estudios académicos, datasets históricos,
 psicología de masas, teoría de juegos y análisis de comportamiento
 en redes sociales digitales.
@@ -15,7 +15,7 @@ import datetime
 EMPIRICAL_BASE_LOADED = True
 
 # ============================================================
-# DICCIONARIO MAESTRO EMPÍRICO DE BEYONDSIGHT
+# DICCIONARIO MAESTRO EMPÍRICO DE MASSIVE
 # Valores normalizados al rango [-1.0, 1.0]
 # ============================================================
 BEYONDSIGHT_EMPIRICAL_MASTER = {
