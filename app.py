@@ -1,5 +1,5 @@
 """
-BeyondSight — Interfaz Streamlit
+MASSIVE — Interfaz Streamlit
 Simulador híbrido con soporte completo de modelos extendidos
 """
 
@@ -181,10 +181,10 @@ if _EMPIRICAL_VALIDATION_FLAGS:
 # ------------------------------------------------------------
 with st.sidebar:
 
-    st.markdown("### BeyondSight Open")
+    st.markdown("### MASSIVE Open")
     st.markdown("Proyecto de código abierto bajo licencia Apache 2.0. Libre para uso personal, académico y comercial con atribución al autor.")
-    st.link_button("💼 Consultoría & Servicios", "mailto:BeyondSight@ejemplo.com")
-    st.link_button("🤝 Contribuir al Proyecto", "https://github.com/Adlgr87/BeyondSight")
+    st.link_button("💼 Consultoría & Servicios", "mailto:MASSIVE@ejemplo.com")
+    st.link_button("🤝 Contribuir al Proyecto", "https://github.com/Adlgr87/MASSIVE")
     st.markdown("---")
 
     # ── LANGUAGE ───────────────────────────────────────────
@@ -623,8 +623,8 @@ with tab1:
             fig_net = generate_social_network_viz(opiniones[-1], historial[-1]["confianza"], amalgama=not es_bipolar, is_bipolar=es_bipolar)
             st.plotly_chart(fig_net, use_container_width=True)
             
-            share_url = "https://github.com/Adlgr87/BeyondSight"
-            st.markdown(f"**¿Impresionante?** [Compartir en 𝕏](https://twitter.com/intent/tweet?text=Acabo%20de%20simular%20una%20dinámica%20social%20en%20BeyondSight%20AI!%20&url={share_url}) | [Compartir en LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url={share_url})")
+            share_url = "https://github.com/Adlgr87/MASSIVE"
+            st.markdown(f"**¿Impresionante?** [Compartir en 𝕏](https://twitter.com/intent/tweet?text=Acabo%20de%20simular%20una%20dinámica%20social%20en%20MASSIVE%20AI!%20&url={share_url}) | [Compartir en LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url={share_url})")
 
         with col_s:
             st.markdown("**Distribución de reglas**")
@@ -709,11 +709,11 @@ with tab1:
             with ca:
                 st.download_button("⬇ CSV",
                     data=df_exp[cols_ok].to_csv(index=False),
-                    file_name="beyondsight.csv", mime="text/csv")
+                    file_name="massive.csv", mime="text/csv")
             with cb:
                 st.download_button("⬇ JSON",
                     data=json.dumps(historial, indent=2, default=str),
-                    file_name="beyondsight.json", mime="application/json")
+                    file_name="massive.json", mime="application/json")
 
     # ------------------------------------------------------------
     # EMPTY STATE
@@ -912,7 +912,7 @@ with tab2:
             st.write(data_inv["narrativa"])
 
             if data_inv["hist_inverso"]:
-                st.markdown("**Trayectoria de opinión (Estrategia Aplicada)** — *BeyondSight AI*")
+                st.markdown("**Trayectoria de opinión (Estrategia Aplicada)** — *MASSIVE AI*")
                 opiniones_inv = [h["opinion"] for h in data_inv["hist_inverso"]]
                 df_data_inv = {"Opinión": opiniones_inv, "Neutro": [neutro] * len(opiniones_inv)}
                 st.line_chart(pd.DataFrame(df_data_inv), color=["#5ccfe6", "#3d5166"])
@@ -949,14 +949,14 @@ with tab2:
                 f"{data_inv['narrativa']}\n\n"
                 "MATRIZ:\n" + json.dumps(data_inv["estrategia"], indent=2) + "\n\n"
                 + "-" * 50 + "\n"
-                + "Generado con BeyondSight AI - Simulador de Redes Sociales.\n"
-                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/BeyondSight\n"
+                + "Generado con MASSIVE AI - Simulador de Redes Sociales.\n"
+                + "Descubre más y obtén tu licencia en: https://github.com/Adlgr87/MASSIVE\n"
                 + "-" * 50
             )
             st.download_button(
                 "📥 Descargar Reporte Ejecutivo (TXT)",
                 data=report_text,
-                file_name=f"Reporte_BeyondSight_{modo_inv.capitalize()}.txt",
+                file_name=f"Reporte_MASSIVE_{modo_inv.capitalize()}.txt",
             )
 
 
@@ -1190,7 +1190,7 @@ with tab3:
                 st.dataframe(final_df, use_container_width=True)
                 st.download_button("⬇ CSV Estado Final",
                                    data=final_df.to_csv(index=False),
-                                   file_name="beyondsight_multilayer.csv",
+                                   file_name="massive_multilayer.csv",
                                    mime="text/csv")
 
         else:
@@ -1523,7 +1523,7 @@ with tab4:
                 st.download_button(
                     "⬇ CSV Clústeres",
                     data=df_ms.to_csv(index=False),
-                    file_name="beyondsight_masiva.csv",
+                    file_name="massive_masiva.csv",
                     mime="text/csv",
                 )
 

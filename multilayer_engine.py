@@ -1,5 +1,5 @@
 """
-multilayer_engine.py — Motor Multicapa Sociodemográfico para BeyondSight
+multilayer_engine.py — Motor Multicapa Sociodemográfico para MASSIVE
 
 Extiende la dinámica 1D de opiniones a un vector de estado multidimensional
 con capas de red diferenciadas (social, digital, económica) y atributos
@@ -22,7 +22,7 @@ Columnas de x_i (K=5):
   3: income       — y_i, nivel de ingreso normalizado [0, 1]
   4: info_access  — φ_i, acceso a información [0, 1]
 
-Autor: BeyondSight Research
+Autor: MASSIVE Research
 """
 
 import numpy as np
