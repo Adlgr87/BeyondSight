@@ -1,7 +1,7 @@
 # Validation — PVU-BS / Validación
 
-> **EN:** This folder contains the BeyondSight Protocol of Validated Use (PVU-BS) in both languages, plus pre-registration and report templates.  
-> **ES:** Esta carpeta contiene el Protocolo de Uso Validado de BeyondSight (PVU-BS) en ambos idiomas, junto con plantillas de pre-registro y reporte.
+> **EN:** This folder contains the MASSIVE Protocol of Validated Use (PVU-BS) in both languages, plus pre-registration and report templates.  
+> **ES:** Esta carpeta contiene el Protocolo de Uso Validado de MASSIVE (PVU-BS) en ambos idiomas, junto con plantillas de pre-registro y reporte.
 
 ---
 

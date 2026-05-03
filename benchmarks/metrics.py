@@ -76,7 +76,7 @@ def dm_test(
     Parameters
     ----------
     y_true   : actual values
-    y_pred_a : forecasts from model A (BeyondSight)
+    y_pred_a : forecasts from model A (MASSIVE)
     y_pred_b : forecasts from baseline B
     h        : forecast horizon (for variance correction)
     """

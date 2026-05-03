@@ -233,7 +233,7 @@ class TestRunnerEndToEnd(unittest.TestCase):
                 if result.get("skipped"):
                     continue
                 self.assertIn("baselines", result)
-                self.assertIn("beyondsight", result)
+                self.assertIn("massive", result)
                 self.assertIn("turning_points", result)
                 for bl_metrics in result["baselines"].values():
                     self.assertIn("mae", bl_metrics)

@@ -1,5 +1,5 @@
 """
-Tests para el Motor de Simulación Masiva de BeyondSight (massive_engine.py).
+Tests para el Motor de Simulación Masiva de MASSIVE (massive_engine.py).
 
 Cubre:
   1. Cuantización: precisión, redondeo y simetría de quantize/dequantize.

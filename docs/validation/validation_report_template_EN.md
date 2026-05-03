@@ -41,7 +41,7 @@
 
 ---
 
-## 4. BeyondSight Metrics
+## 4. MASSIVE Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -108,7 +108,7 @@ _Justification:_
 
 ## 10. Conclusions
 
-_Summarise the main findings and whether the validation supports use of BeyondSight for the stated target variable._
+_Summarise the main findings and whether the validation supports use of MASSIVE for the stated target variable._
 
 ---
 

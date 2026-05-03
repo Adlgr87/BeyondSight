@@ -1,5 +1,5 @@
 """
-massive_engine.py — Motor de Simulación Masiva para BeyondSight
+massive_engine.py — Motor de Simulación Masiva para MASSIVE
 
 Cuatro estrategias para simular miles a millones de agentes sin explotar la RAM ni
 la CPU:
@@ -33,7 +33,7 @@ Ejemplo de uso::
     print(result["memory_savings_pct"])   # ≈ 99.8%
     print(result["mean_opinion"])
 
-Autor: BeyondSight Research
+Autor: MASSIVE Research
 """
 
 from __future__ import annotations

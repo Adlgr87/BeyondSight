@@ -1,5 +1,5 @@
 """
-BeyondSight — Base Empírica de Calibración
+MASSIVE — Base Empírica de Calibración
 Parámetros derivados de estudios académicos, datasets históricos,
 psicología de masas, teoría de juegos y análisis de comportamiento
 en redes sociales digitales.
@@ -15,7 +15,7 @@ import datetime
 EMPIRICAL_BASE_LOADED = True
 
 # ============================================================
-# DICCIONARIO MAESTRO EMPÍRICO DE BEYONDSIGHT
+# DICCIONARIO MAESTRO EMPÍRICO DE MASSIVE
 # Valores normalizados al rango [-1.0, 1.0]
 # ============================================================
 BEYONDSIGHT_EMPIRICAL_MASTER = {
@@ -489,3 +489,7 @@ def get_param(category: str, param_id: str) -> dict:
             f"Available params: {list(category_data.keys()) if isinstance(category_data, dict) else '(not a dict)'}"
         )
     return category_data[param_id]
+
+# ── Backward-compatible aliases (new preferred names) ─────────────────────────
+MASSIVE_EMPIRICAL_MASTER = BEYONDSIGHT_EMPIRICAL_MASTER
+MASSIVE_RUNTIME_PARAMS   = BEYONDSIGHT_RUNTIME_PARAMS
