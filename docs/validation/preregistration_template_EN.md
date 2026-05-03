@@ -20,7 +20,7 @@
 
 > Copy from PVU-BS § 4.1 or state a more specific variant:
 
-_BeyondSight produces significantly lower MAE on the held-out test set compared to the naive baseline, after Holm–Bonferroni correction (α = 0.05)._
+_MASSIVE produces significantly lower MAE on the held-out test set compared to the naive baseline, after Holm–Bonferroni correction (α = 0.05)._
 
 Primary metric: `<!-- MAE / RMSE / TPS F1 / … -->`
 

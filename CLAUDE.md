@@ -62,7 +62,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
-## BeyondSight-specific conventions
+## MASSIVE-specific conventions
 
 - Numba JIT kernels (`@njit`) accept only plain numpy arrays — no dicts, DataFrames, or Python objects.
 - All opinion values stay within their declared range (unipolar `[0,1]` or bipolar `[-1,1]`); use `np.clip` after every update.

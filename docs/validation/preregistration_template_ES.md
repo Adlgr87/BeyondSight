@@ -20,7 +20,7 @@
 
 > Copiar de PVU-BS § 4.1 o declarar una variante más específica:
 
-_BeyondSight produce un MAE significativamente menor en el conjunto de test bloqueado comparado con el baseline naive, tras corrección Holm–Bonferroni (α = 0.05)._
+_MASSIVE produce un MAE significativamente menor en el conjunto de test bloqueado comparado con el baseline naive, tras corrección Holm–Bonferroni (α = 0.05)._
 
 Métrica primaria: `<!-- MAE / RMSE / TPS F1 / … -->`
 

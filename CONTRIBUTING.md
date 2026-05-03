@@ -1,6 +1,6 @@
-# Contributing to BeyondSight 🌊
+# Contributing to MASSIVE 🌊
 
-First off, thank you for considering contributing to BeyondSight! It's people like you that make BeyondSight such a great tool for understanding and simulating social dynamics.
+First off, thank you for considering contributing to MASSIVE! It's people like you that make MASSIVE such a great tool for understanding and simulating social dynamics.
 
 ## 1. How you can help
 We welcome contributions in various forms:

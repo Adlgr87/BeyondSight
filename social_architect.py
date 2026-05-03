@@ -1,5 +1,5 @@
 """
-BeyondSight — Social Architect Agent (Inverse Mode)
+MASSIVE — Social Architect Agent (Inverse Mode)
 LLM iterativo que busca la secuencia de intervenciones matemáticas
 que lleva la red a un estado objetivo.
 
@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from schemas import StrategyMatrix
 from simulator import run_with_schedule, resumen_historial, DEFAULT_CONFIG
 
-log = logging.getLogger("beyondsight")
+log = logging.getLogger("massive")
 
 
 # ============================================================
