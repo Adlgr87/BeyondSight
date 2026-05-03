@@ -1013,6 +1013,12 @@ with tab3:
             ml_edu_scale = st.slider("🎓 Escala educativa", 0.5, 1.5, 1.0, 0.1)
             ml_seed = st.number_input("🎲 Semilla", value=42, step=1)
 
+        if pct_young + pct_mid > 100:
+            st.warning(
+                f"⚠️ La suma de jóvenes ({pct_young}%) + adultos ({pct_mid}%) "
+                f"supera el 100%. Se ajusta el grupo mayor a 0%."
+            )
+
         age_dist = (pct_young / 100.0, pct_mid / 100.0, pct_old / 100.0)
         total_w  = w_social + w_digital + w_economic
         layer_w  = (
