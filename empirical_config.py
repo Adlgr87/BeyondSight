@@ -489,3 +489,7 @@ def get_param(category: str, param_id: str) -> dict:
             f"Available params: {list(category_data.keys()) if isinstance(category_data, dict) else '(not a dict)'}"
         )
     return category_data[param_id]
+
+# ── Backward-compatible aliases (new preferred names) ─────────────────────────
+MASSIVE_EMPIRICAL_MASTER = BEYONDSIGHT_EMPIRICAL_MASTER
+MASSIVE_RUNTIME_PARAMS   = BEYONDSIGHT_RUNTIME_PARAMS
