@@ -11,10 +11,9 @@ jobs:
   sync-to-spaces:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
       - name: Push to Hugging Face
         env:
           # HF_TOKEN debe estar configurado en Github Secrets (Settings > Secrets and variables > Actions > Repository secrets)
@@ -23,4 +22,6 @@ jobs:
           # Por ejemplo, si tu Space se llama BeyondSight en el usuario Adlgr87, debe ser "Adlgr87/BeyondSight"
           SPACE_ID: "Adlgr87/BeyondSight"
         run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
           git push -f https://Adlgr87:$HF_TOKEN@huggingface.co/spaces/$SPACE_ID main
