@@ -1,5 +1,5 @@
 ---
-title: BeyondSight
+title: MASSIVE
 emoji: 🌊
 colorFrom: blue
 colorTo: indigo
@@ -8,22 +8,25 @@ app_file: app.py
 pinned: false
 ---
 
-# BeyondSight
+# MASSIVE
+### Mathematical Architecture for Scalable Social Interaction & Virtual Engine
+
+> *"Many behaving as One"*
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
 [![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
 [![PVU Validation](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
 
-![BeyondSight Demo](docs/beyondsight_mockup.png)
+![MASSIVE Demo](docs/beyondsight_mockup.png)
 
-Hybrid social dynamics simulator — Numerical core + LLM as regime selector.
+Hybrid social dynamics simulator — Numerical core + LLM as regime selector. Built for scale, from a handful of agents to millions.
 
-BeyondSight bridges the gap between classic mathematical models of opinion formation and the contextual flexibility of Large Language Models (LLMs).
+MASSIVE bridges the gap between classic mathematical models of opinion formation and the contextual flexibility of Large Language Models (LLMs). Its architecture is designed from the ground up to remain computationally tractable whether you are probing a small community or a population-scale social network.
 
-At the heart of BeyondSight lies the **Social Architect** — a reverse-engineering LLM agent that discovers the precise sequence of mathematical interventions needed to steer any social network toward a desired outcome. Rather than predicting where a network *will* go, the Social Architect determines exactly *how to get* where you want.
+At the heart of MASSIVE lies the **Social Architect** — a reverse-engineering LLM agent that discovers the precise sequence of mathematical interventions needed to steer any social network toward a desired outcome. Rather than predicting where a network *will* go, the Social Architect determines exactly *how to get* where you want.
 
-Each individual is no longer a scalar opinion but a **multidimensional state vector** encoding simultaneous behaviors — cooperation, hierarchy recognition, income, information access — evolving in parallel across three superimposed network layers (social, digital, economic) modulated by fixed sociodemographic attributes such as religion, education, and age.
+Each individual is no longer a scalar opinion but a **multidimensional state vector** encoding simultaneous behaviors — cooperation, hierarchy recognition, income, information access — evolving in parallel across three superimposed network layers (social, digital, economic) modulated by fixed sociodemographic attributes such as religion, education, and age. At population scale, agents are organized into statistically representative clusters that preserve emergent social dynamics while reducing memory and compute by orders of magnitude.
 
 ## Theoretical Foundations and Research
 
@@ -53,9 +56,9 @@ Three additional simulation rules (rules 10–12 in `extended_models.py`) expand
 
 ### Hybrid Architecture
 
-Unlike purely numerical simulations, BeyondSight uses an LLM (like Llama 3) to analyze historical trajectories and decide which mathematical transition regime is sociologically most coherent at ea[...] 
+Unlike purely numerical simulations, MASSIVE uses an LLM (like Llama 3) to analyze historical trajectories and decide which mathematical transition regime is sociologically most coherent at ea[...] 
 
-**Academic Connection:** BeyondSight's approach resonates with recent research like *"Opinion Consensus Formation Among Networked Large Language Models"* (January 2026), exploring how intelligent [...]  
+**Academic Connection:** MASSIVE's approach resonates with recent research like *"Opinion Consensus Formation Among Networked Large Language Models"* (January 2026), exploring how intelligent [...]  
 
 ### Cross-Cutting Mechanisms
 
@@ -69,13 +72,13 @@ Three mechanisms are applied transversally on top of any simulation rule at ever
 
 ### Early Warning Signals & Topological Analysis
 
-BeyondSight monitors the simulation for proximity to tipping points using two complementary methods:
+MASSIVE monitors the simulation for proximity to tipping points using two complementary methods:
 
 **Early Warning Signals (EWS) — Critical Slowing Down (Scheffer et al., 2009; Dakos et al., 2012):**  
 Over a sliding window of the last 10 opinion values, the system continuously computes variance, lag-1 autocorrelation, and skewness. When any metric exceeds its threshold, a ⚠️ EWS warning is [...]  
 
 **Topological Data Analysis — Persistent Homology (Carlsson, 2009; Perea & Harer, 2015):**  
-When the optional `ripser` + `persim` packages are installed, BeyondSight performs Takens delay-embedding of the opinion time series and computes H1 persistence diagrams via Vietoris-Rips filtrati[...]  
+When the optional `ripser` + `persim` packages are installed, MASSIVE performs Takens delay-embedding of the opinion time series and computes H1 persistence diagrams via Vietoris-Rips filtrati[...]  
 
 ### Empirical Calibration Base
 
@@ -83,13 +86,13 @@ Modeling complex social phenomena requires anchoring simulations to measurable, 
 Academic research spanning psychology, political science, and network theory provides this empirical foundation.  
 Jointly calibrated from more than 40 peer-reviewed sources, each parameter carries variance metadata for cultural adaptation.  
 Opinion dynamics treated in isolation from data risks producing mathematically elegant but sociologically hollow results.  
-Rooting the simulator in these calibration indices shifts BeyondSight from a theoretical toy to a research-grade instrument.  
+Rooting the simulator in these calibration indices shifts MASSIVE from a theoretical toy to a research-grade instrument.  
 Indices covering algorithmic drift, parasocial influence, confirmation bias, temporal decay, and game-theoretic payoffs are pre-loaded.  
 Together, they form a living empirical base that researchers can extend by adding parameters or updating cultural variance estimates.  
 Years of accumulated social science converge into a normalized bipolar spectrum, ready to inform every simulation step.  
 Researchers and practitioners alike can query the master dictionary at runtime to inspect source citations and confidence levels.  
 Evidence-grounded parameters prevent the simulator from drifting into pure speculation, keeping outputs interpretable and falsifiable.  
-Providing this layer of empirical accountability is what distinguishes BeyondSight from a pure mathematical sandbox.  
+Providing this layer of empirical accountability is what distinguishes MASSIVE from a pure mathematical sandbox.  
 Over upcoming releases, additional cultural blocks — Nordic, South Asian, Middle Eastern — will be populated with localized estimates.  
 Remaining gaps are flagged with `pending_empirical_data` tags, making the boundaries of current knowledge explicit rather than hidden.  
 Transparency about uncertainty is, ultimately, the most honest form of scientific modeling.
@@ -187,7 +190,7 @@ Layer and attribute defaults can be customized without touching code via `config
 
 ## Energy Landscape Engine
 
-BeyondSight's **Energy Landscape Engine** models social dynamics as a physical system where every agent's opinion evolves according to a Langevin stochastic differential equation:
+MASSIVE's **Energy Landscape Engine** models social dynamics as a physical system where every agent's opinion evolves according to a Langevin stochastic differential equation:
 
 ```
 x_i(t+η) = x_i(t) − η·∇U(x_i) + η·λ·(x̄_neighbors − x_i) + √(2η·T)·ε
@@ -226,7 +229,7 @@ The **Programmatic Architect** (`programmatic_architect.py`) ships with 8 valida
 
 ## 🧠 Social Architect — The Crown Jewel
 
-The **Social Architect** is BeyondSight's flagship feature and its most powerful capability. Where traditional simulations ask *"what will happen?"*, the Social Architect answers: **"what must I [...]**
+The **Social Architect** is MASSIVE's flagship feature and its most powerful capability. Where traditional simulations ask *"what will happen?"*, the Social Architect answers: **"what must I [...]**
 
 ### Concept: Sociological Reverse Engineering
 
@@ -244,7 +247,7 @@ The system responds with a **structured intervention schedule** (`StrategyMatrix
 
 ### Stochastic Dynamics: The Langevin Equations  
 
-BeyondSight models social opinion as a continuous stochastic process. At each discrete time step `t`, the opinion of the representative agent evolves according to a **discrete-time Langevin equat[...]  
+MASSIVE models social opinion as a continuous stochastic process. At each discrete time step `t`, the opinion of the representative agent evolves according to a **discrete-time Langevin equat[...]  
 
 ```
 x(t + Δt)  =  f(x(t), r(t))  ·  α  +  b(x(t))  ·  (1 − α)  +  G(x(t))  +  η(t)
@@ -382,7 +385,7 @@ This repository is ready to be deployed as a **Hugging Face Space**. Simply conn
 
 ## Social Media Integration
 
-BeyondSight can seed simulations with **real opinion data** fetched live from Twitter/X or Reddit. Configure credentials in the sidebar under **🌐 Datos de Redes Sociales**.
+MASSIVE can seed simulations with **real opinion data** fetched live from Twitter/X or Reddit. Configure credentials in the sidebar under **🌐 Datos de Redes Sociales**.
 
 ### Twitter / X
 
@@ -402,7 +405,7 @@ Requires a **script-type application** registered at [reddit.com/prefs/apps](htt
 |---|---|
 | Client ID | App's client ID (shown under the app name) |
 | Client Secret | App's secret |
-| User Agent | Any string, e.g. `BeyondSight/1.0` |
+| User Agent | Any string, e.g. `MASSIVE/1.0` |
 
 The connector uses `praw` to search a subreddit, scores each post's title + body for sentiment, weights by Reddit vote score, and returns a distribution of community opinions.
 
@@ -424,9 +427,9 @@ The `SocialEnergyEngine` in `energy_engine.py` uses **Numba** to JIT-compile the
 
 The **⚡ Paralelizar con Dask** toggle in the UI activates `simular_multiples_dask()`, which wraps each of the N simulations in a `dask.delayed` task and executes them concurrently across all av[...] 
 
-## Massive-Scale Simulation (millions of agents)
+## Scale — Millions of Agents on Standard Hardware
 
-`massive_engine.py` implements four complementary strategies that allow BeyondSight to simulate **millions of agents** on standard hardware — no GPU cluster required.
+`massive_engine.py` handles the computational demands of population-scale simulation through four integrated strategies, enabling runs with millions of agents on a laptop — no GPU cluster required.
 
 ### Strategy 1 — Sociological LOD (Super-Agents)
 
@@ -507,7 +510,7 @@ rep = engine.memory_report
 
 ## Protocol of Validated Use (PVU-BS)
 
-BeyondSight ships with a formal **validation protocol** that establishes the minimum evidence standard for claiming validated predictive performance on real-world opinion dynamics data.
+MASSIVE ships with a formal **validation protocol** that establishes the minimum evidence standard for claiming validated predictive performance on real-world opinion dynamics data.
 
 ### Key concepts
 
@@ -540,7 +543,7 @@ Full protocol docs: [English](docs/validation/PVU_BeyondSight_EN.md) · [Españo
 ## Project Structure
 
 ```
-BeyondSight/
+MASSIVE/
 ├── benchmarks/                   # PVU-BS offline benchmark runner
 │   ├── runner.py                 # CLI entry point (python -m benchmarks.runner)
 │   ├── baselines.py              # Naive, MA, AR(1), Random regime
@@ -614,4 +617,4 @@ The logic, structure, variables, and system design belong to [Adlgr87](https://g
 For consulting inquiries or collaborations, contact [Adlgr87](https://github.com/Adlgr87) on GitHub.
 
 ---
-*Developed with a focus on AI interpretability and the study of complex social systems.*
+*Many behaving as One.*
