@@ -418,11 +418,92 @@ REDDIT_CLIENT_SECRET=xxx
 
 ### Numba — JIT-accelerated Langevin Engine
 
-The `SocialEnergyEngine` in `energy_engine.py` uses **Numba** to JIT-compile the inner Langevin step loop via `@njit`. On first call, the kernel is compiled once; all subsequent calls are native-[...]  
+The `SocialEnergyEngine` in `energy_engine.py` uses **Numba** to JIT-compile the inner Langevin step loop via `@njit`. On first call, the kernel is compiled once; all subsequent calls are native-[...] 
 
 ### Dask — Parallel Multi-Simulation
 
-The **⚡ Paralelizar con Dask** toggle in the UI activates `simular_multiples_dask()`, which wraps each of the N simulations in a `dask.delayed` task and executes them concurrently across all av[...]  
+The **⚡ Paralelizar con Dask** toggle in the UI activates `simular_multiples_dask()`, which wraps each of the N simulations in a `dask.delayed` task and executes them concurrently across all av[...] 
+
+## Massive-Scale Simulation (millions of agents)
+
+`massive_engine.py` implements four complementary strategies that allow BeyondSight to simulate **millions of agents** on standard hardware — no GPU cluster required.
+
+### Strategy 1 — Sociological LOD (Super-Agents)
+
+Inspired by Level-of-Detail rendering in video games: instead of simulating N individual agents, the engine groups them into **M super-agents** (clusters). Only M << N cluster centers are evolved by the Langevin equations; each center represents a group of agents with similar socio-psychological profiles.
+
+| N agents | M clusters (auto) | Matrix size | RAM (float64) |
+|---|---|---|---|
+| 10 000 | 100 | 100×100 | ~0.08 MB |
+| 100 000 | 316 | 316×316 | ~0.8 MB |
+| 1 000 000 | 1 000 | 1000×1000 | ~8 MB |
+
+The `apply_shock()` method lets you inject an external perturbation (news event, economic shock) that reactivates sleeping clusters and propagates through the network.
+
+### Strategy 2 — State Quantization (uint8 personalities)
+
+Agent state parameters are stored as unsigned 8-bit integers (0–255) instead of 64-bit floats, reducing RAM by **87.5%** per parameter. The mapping preserves sociologically meaningful resolution (≈ 0.008 per unit of opinion range).
+
+```python
+# Before: float64 — 8 bytes/parameter
+opinion_naive = 0.857432   # 8 bytes
+
+# After: uint8 — 1 byte/parameter
+opinion_quant = 219         # 1 byte  → dequantize → 0.856...
+```
+
+Combined with LOD, the net memory reduction for N=1M agents reaches **>99.99%** vs a naive float64 implementation.
+
+### Strategy 3 — Event-Driven Simulation (Gossip Sparsity)
+
+In real social dynamics, not everyone changes their opinion at every moment. The `ActiveSet` class tracks which super-agents are "awake" based on whether their state changed by more than a configurable threshold (`sleep_threshold`).
+
+- Agents whose neighbors changed significantly are automatically reactivated.
+- Agents in stable consensus remain frozen — zero CPU cost until perturbed.
+- The `active_history` metric shows the fraction of active super-agents per step, revealing when the system is converging.
+
+### Strategy 4 — GPU Offloading
+
+Matrix operations (social force computation, stochastic integration) are automatically delegated to GPU when **CuPy** or **PyTorch+CUDA** are detected. The CPU-side Numba JIT path is used as fallback, so the engine works on any machine without configuration changes.
+
+### Programmatic API
+
+```python
+from massive_engine import MassiveSimEngine
+
+# Simulate 1 million agents with all optimizations
+engine = MassiveSimEngine(
+    N=1_000_000,
+    quantize=True,
+    event_driven=True,
+    sleep_threshold=5e-3,
+    layer_weights=(0.4, 0.3, 0.3),
+    coupling=0.3,
+    dt=0.01,
+    seed=42,
+)
+
+result = engine.run(steps=300)
+print(f"Memory savings: {result['memory_savings_pct']:.1f}%")   # ≈ 99.99%
+print(f"Mean opinion:   {result['mean_opinion']:+.3f}")
+print(f"Speed:          {result['steps_per_second']:.0f} steps/s")
+
+# Apply a news shock to 20% of the network
+engine.apply_shock(shock_value=0.4, fraction=0.2)
+result2 = engine.run(steps=100)
+```
+
+The `memory_report` property gives a detailed breakdown of savings by strategy:
+
+```python
+rep = engine.memory_report
+# {'n_agents': 1000000, 'n_clusters': 1000, 'float64_MB': 40.0,
+#  'lod_MB': 0.04, 'final_MB': 0.005, 'savings_pct': 99.99,
+#  'strategies': ['LOD (Super-Agentes)', 'Cuantización uint8', 'Event-Driven'],
+#  'gpu_backend': 'numpy'}
+```
+
+
 
 ## Protocol of Validated Use (PVU-BS)
 
@@ -479,6 +560,7 @@ BeyondSight/
 │   ├── test_energy_core.py       # Energy engine test suite (42 tests)
 │   ├── test_game_theory.py       # Strategic Game Theory layer tests
 │   ├── test_integration_llm.py   # LLM selector integration tests
+│   ├── test_massive_engine.py    # Massive-scale engine tests (42 tests)
 │   ├── test_multilayer.py        # Multilayer engine test suite (27 tests)
 │   ├── test_pvu_runner.py        # PVU benchmark runner tests
 │   ├── test_simulator.py         # Simulator core tests
@@ -487,7 +569,7 @@ BeyondSight/
 ├── docs/                         # MkDocs documentation sources
 ├── .env.example                  # Environment variable template
 ├── .gitignore
-├── app.py                        # Streamlit interface (3 tabs: Simulation, Architect, Multilayer)
+├── app.py                        # Streamlit interface (4 tabs: Simulation, Architect, Multilayer, Massive)
 ├── cache_manager.py              # RAM + SQLite landscape cache
 ├── empirical_calibration.py      # Master empirical calibration dictionary (43 parameters)
 ├── empirical_config.py           # Calibration loader — EMPIRICAL_BASE_LOADED flag
@@ -497,6 +579,7 @@ BeyondSight/
 ├── extended_models.py            # Extended rules: Nash (10), Bayesian BN (11), SIR (12)
 ├── i18n.py                       # Internationalization helpers (English / Spanish)
 ├── langchain_workflows.py        # LangChain chains for Social & Programmatic Architects
+├── massive_engine.py             # Massive-Scale Engine: LOD, uint8 quantization, event-driven, GPU
 ├── multilayer_engine.py          # Multilayer Sociodemographic Engine (5D vector + 3 layers + theta)
 ├── programmatic_architect.py     # Programmatic Architect (archetypes + cache + LLM)
 ├── README.md                     # Documentation (English)
