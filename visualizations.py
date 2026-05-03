@@ -34,6 +34,8 @@ def generate_social_network_viz(opinion_mean, confianza, amalgama=False, n_nodes
         
     # Generar aristas basándose en homofilia (confianza y similitud de opinión)
     # Vectorizado con NumPy para evitar el bucle O(N²) en Python puro.
+    # Nota: usa matrices N×N — para n_nodes ≤ 2000 el uso de RAM es negligible
+    # (<32 MB); evitar valores mayores en producción si la RAM es limitada.
     op_arr = np.array(opinions)
     diffs = np.abs(op_arr[:, None] - op_arr[None, :])
     probs = np.exp(-diffs * (5.0 * (1.1 - confianza))) * 0.15
