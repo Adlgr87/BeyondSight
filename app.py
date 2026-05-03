@@ -66,7 +66,7 @@ _STRATEGIC_PRESETS: list[dict] = [
 # PÁGINA
 # ------------------------------------------------------------
 st.set_page_config(
-    page_title="BeyondSight",
+    page_title="MASSIVE",
     page_icon="🌊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -79,7 +79,7 @@ import streamlit.components.v1 as components
 components.html("""
 <script>
   // Google Analytics / PostHog script placeholder
-  console.log('BeyondSight Analytics loaded');
+  console.log('MASSIVE Analytics loaded');
 </script>
 """, width=0, height=0)
 
@@ -161,9 +161,9 @@ section[data-testid="stSidebar"] {
 # ------------------------------------------------------------
 # HEADER
 # ------------------------------------------------------------
-st.markdown('<div class="bs-header">BeyondSight</div>', unsafe_allow_html=True)
+st.markdown('<div class="bs-header">MASSIVE</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="bs-subtitle">Simulador híbrido · Dinámica social · LLM + Núcleo numérico</div>',
+    '<div class="bs-subtitle">Mathematical Architecture for Scalable Social Interaction &amp; Virtual Engine &nbsp;·&nbsp; Many behaving as One</div>',
     unsafe_allow_html=True,
 )
 
@@ -455,7 +455,12 @@ with st.sidebar:
 # ------------------------------------------------------------
 # LÓGICA PRINCIPAL
 # ------------------------------------------------------------
-tab1, tab2, tab3 = st.tabs(['📊 Simulación Tradicional', '🧠 Arquitecto Social (Modo Inverso)', '🌐 Simulación Multicapa'])
+tab1, tab2, tab3, tab4 = st.tabs([
+    '📊 Simulación Tradicional',
+    '🧠 Arquitecto Social (Modo Inverso)',
+    '🌐 Simulación Multicapa',
+    '⚡ Simulación Masiva',
+])
 
 with tab1:
     if correr:
@@ -1217,3 +1222,338 @@ with tab3:
 según su religiosidad, educación y edad, reproduciendo la heterogeneidad real de
 las sociedades complejas.
                 """)
+
+
+# ------------------------------------------------------------
+# TAB 4 — SIMULACIÓN MASIVA
+# Motor de escala masiva con 4 estrategias de eficiencia:
+#   1. LOD (Super-Agentes): N agentes → M clústeres
+#   2. Cuantización uint8: ~87.5% menos RAM
+#   3. Event-Driven: solo procesa clústeres activos
+#   4. GPU offloading (CuPy/PyTorch si disponibles)
+# ------------------------------------------------------------
+
+with tab4:
+    import plotly.graph_objects as go
+
+    try:
+        from massive_engine import MassiveSimEngine, _GPU_BACKEND
+        _MASSIVE_AVAILABLE = True
+    except ImportError as _me_err:
+        _MASSIVE_AVAILABLE = False
+        st.error(f"massive_engine no disponible: {_me_err}")
+
+    if _MASSIVE_AVAILABLE:
+        st.markdown("### ⚡ Simulación Masiva — Millones de Agentes")
+        st.markdown(
+            "Simula desde **10 000 hasta 1 000 000+ agentes** usando cuatro estrategias de "
+            "eficiencia combinadas: representación LOD por super-agentes, cuantización uint8, "
+            "actualización dirigida por eventos y aceleración GPU opcional."
+        )
+
+        # ── Badge GPU ─────────────────────────────────────────────────────────
+        gpu_color = "#bae67e" if _GPU_BACKEND != "numpy" else "#3d5166"
+        gpu_label = f"GPU: {_GPU_BACKEND}" if _GPU_BACKEND != "numpy" else "CPU (numpy) · GPU no detectada"
+        st.markdown(
+            f'<span class="badge" style="background:#0d1520;color:{gpu_color};border:1px solid {gpu_color}">'
+            f'🖥 {gpu_label}</span>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Controles ─────────────────────────────────────────────────────────
+        ms_col1, ms_col2, ms_col3 = st.columns(3)
+
+        with ms_col1:
+            st.markdown("**Escala**")
+            ms_N = st.select_slider(
+                "👥 Agentes (N)",
+                options=[10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000],
+                value=100_000,
+                help="Número de agentes reales representados por los super-agentes.",
+            )
+            ms_M_auto = st.toggle("Auto M (√N)", value=True,
+                                  help="M se calcula como max(50, √N) — recomendado.")
+            if ms_M_auto:
+                ms_M = max(50, int(ms_N ** 0.5))
+                st.caption(f"→ M = {ms_M} super-agentes")
+            else:
+                ms_M = st.slider("🔵 Super-agentes (M)", 50, 500, 200, 10)
+            ms_steps = st.slider("⏱ Pasos", 50, 500, 200, 10)
+
+        with ms_col2:
+            st.markdown("**Estrategias de eficiencia**")
+            ms_quantize = st.toggle(
+                "📦 Cuantización uint8",
+                value=True,
+                help="Almacena el estado en 1 byte/parámetro. ~87.5% menos RAM que float64.",
+            )
+            ms_event = st.toggle(
+                "⚡ Event-Driven",
+                value=True,
+                help="Solo procesa super-agentes con cambios significativos. Ahorra CPU.",
+            )
+            ms_sleep_thr = st.select_slider(
+                "Umbral de 'sueño'",
+                options=[1e-4, 5e-4, 1e-3, 5e-3, 1e-2],
+                value=5e-3,
+                format_func=lambda v: f"{v:.0e}",
+                help="Cambio mínimo para considerar activo a un super-agente.",
+            )
+            ms_use_gpu = st.toggle(
+                f"🖥 GPU ({_GPU_BACKEND})",
+                value=_GPU_BACKEND != "numpy",
+                disabled=_GPU_BACKEND == "numpy",
+                help="Usa CuPy o PyTorch para operaciones matriciales en GPU.",
+            )
+
+        with ms_col3:
+            st.markdown("**Parámetros de red**")
+            ms_w_s = st.slider("🤝 Peso Social",    0.0, 1.0, 0.4, 0.05)
+            ms_w_d = st.slider("📱 Peso Digital",   0.0, 1.0, 0.3, 0.05)
+            ms_w_e = st.slider("💼 Peso Económico", 0.0, 1.0, 0.3, 0.05)
+            ms_coupling = st.slider("λ Acoplamiento", 0.05, 1.0, 0.3, 0.05)
+            ms_dt = st.select_slider("Δt", [0.001, 0.005, 0.01, 0.02, 0.05], value=0.01)
+            ms_seed = st.number_input("🎲 Semilla", value=42, step=1)
+
+        ms_run = st.button("🚀 Simular Masiva", type="primary")
+
+        # ── Preview de ahorro de memoria ──────────────────────────────────────
+        float64_MB = ms_N * 5 * 8 / 1e6
+        lod_MB     = ms_M * 5 * 8 / 1e6
+        final_MB   = ms_M * 5 * 1 / 1e6 if ms_quantize else lod_MB
+        savings_pct = (1.0 - final_MB / float64_MB) * 100.0
+
+        prev_c1, prev_c2, prev_c3 = st.columns(3)
+        with prev_c1:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">RAM sin optimizar</div>
+                <div class="metric-value">{float64_MB:.1f} MB</div>
+                <div class="metric-delta-neu">N={ms_N:,} × 5 dim × float64</div>
+            </div>""", unsafe_allow_html=True)
+        with prev_c2:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">RAM con LOD</div>
+                <div class="metric-value">{lod_MB:.2f} MB</div>
+                <div class="metric-delta-pos">M={ms_M} clústeres × float64</div>
+            </div>""", unsafe_allow_html=True)
+        with prev_c3:
+            st.markdown(f"""<div class="metric-card">
+                <div class="metric-label">RAM final estimada</div>
+                <div class="metric-value">{final_MB:.3f} MB</div>
+                <div class="metric-delta-pos">▼ {savings_pct:.1f}% vs naive</div>
+            </div>""", unsafe_allow_html=True)
+
+        if ms_run:
+            total_w = ms_w_s + ms_w_d + ms_w_e
+            layer_w = (
+                (ms_w_s / total_w, ms_w_d / total_w, ms_w_e / total_w)
+                if total_w > 0 else (0.4, 0.3, 0.3)
+            )
+
+            with st.spinner(f"Simulando {ms_N:,} agentes en {ms_M} clústeres..."):
+                ms_engine = MassiveSimEngine(
+                    N=ms_N,
+                    M=ms_M,
+                    quantize=ms_quantize,
+                    event_driven=ms_event,
+                    sleep_threshold=float(ms_sleep_thr),
+                    use_gpu=ms_use_gpu,
+                    layer_weights=layer_w,
+                    coupling=ms_coupling,
+                    dt=ms_dt,
+                    seed=int(ms_seed),
+                )
+                ms_result = ms_engine.run(steps=ms_steps)
+
+            # ── Métricas de resultado ─────────────────────────────────────────
+            st.markdown("#### Resultados de la simulación masiva")
+            rc1, rc2, rc3, rc4 = st.columns(4)
+            with rc1:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Opinión media final</div>
+                    <div class="metric-value">{ms_result['mean_opinion']:+.3f}</div>
+                    <div class="metric-delta-neu">σ = {ms_result['std_opinion']:.3f}</div>
+                </div>""", unsafe_allow_html=True)
+            with rc2:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Polarización</div>
+                    <div class="metric-value">{ms_result['polarization']:.3f}</div>
+                    <div class="metric-delta-neu">|opinión| media</div>
+                </div>""", unsafe_allow_html=True)
+            with rc3:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Velocidad</div>
+                    <div class="metric-value">{ms_result['steps_per_second']:.0f}</div>
+                    <div class="metric-delta-pos">pasos/segundo</div>
+                </div>""", unsafe_allow_html=True)
+            with rc4:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Ahorro RAM real</div>
+                    <div class="metric-value">{ms_result['memory_savings_pct']:.1f}%</div>
+                    <div class="metric-delta-pos">vs float64 naive</div>
+                </div>""", unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ── Badges de estrategias activas ─────────────────────────────────
+            badge_colors = {
+                "LOD (Super-Agentes)": "#5ccfe6",
+                "Cuantización uint8":  "#bae67e",
+                "Event-Driven":        "#ff8f40",
+            }
+            badges_ms = []
+            for strat in ms_result.get("strategies_active", []):
+                color = badge_colors.get(strat, "#c3a6ff")
+                badges_ms.append(
+                    f'<span class="badge" style="background:#0d1520;color:{color};'
+                    f'border:1px solid {color}">{strat}</span>'
+                )
+            if badges_ms:
+                st.markdown(" ".join(badges_ms), unsafe_allow_html=True)
+
+            # ── Gráficos ──────────────────────────────────────────────────────
+            plot_m1, plot_m2 = st.columns(2)
+
+            with plot_m1:
+                st.markdown("**Trayectoria de opinión media (ponderada por clúster)**")
+                opinion_hist = ms_result["opinion_history"]
+                fig_ms_op = go.Figure()
+                fig_ms_op.add_trace(go.Scatter(
+                    y=opinion_hist,
+                    name="Opinión media",
+                    line=dict(color="#5ccfe6", width=2),
+                ))
+                fig_ms_op.add_hline(y=0, line_dash="dot", line_color="#3d5166",
+                                    annotation_text="neutro")
+                fig_ms_op.update_layout(
+                    template="plotly_dark", paper_bgcolor="#0a0e14",
+                    plot_bgcolor="#0d1520", height=300,
+                    xaxis_title="Paso", yaxis_title="Opinión media",
+                    margin=dict(l=10, r=10, t=10, b=10),
+                )
+                st.plotly_chart(fig_ms_op, use_container_width=True)
+
+            with plot_m2:
+                if ms_event:
+                    st.markdown("**Fracción de super-agentes activos por paso**")
+                    active_hist = ms_result["active_history"]
+                    fig_ms_act = go.Figure()
+                    fig_ms_act.add_trace(go.Scatter(
+                        y=active_hist * 100,
+                        name="% Activos",
+                        fill="tozeroy",
+                        line=dict(color="#ff8f40", width=1.5),
+                    ))
+                    fig_ms_act.update_layout(
+                        template="plotly_dark", paper_bgcolor="#0a0e14",
+                        plot_bgcolor="#0d1520", height=300,
+                        xaxis_title="Paso", yaxis_title="% Super-agentes activos",
+                        yaxis=dict(range=[0, 105]),
+                        margin=dict(l=10, r=10, t=10, b=10),
+                    )
+                    st.plotly_chart(fig_ms_act, use_container_width=True)
+                else:
+                    st.info("Activa Event-Driven para ver la evolución de agentes activos.")
+
+            # ── Distribución final de opinión entre clústeres ─────────────────
+            st.markdown("**Distribución de opinión entre super-agentes (estado final)**")
+            cluster_ops = ms_result["cluster_opinions"]
+            cluster_cnts = ms_result["cluster_counts"]
+
+            fig_hist = go.Figure()
+            fig_hist.add_trace(go.Histogram(
+                x=cluster_ops,
+                nbinsx=30,
+                name="Clústeres",
+                marker_color="#5ccfe6",
+                opacity=0.75,
+            ))
+            fig_hist.update_layout(
+                template="plotly_dark", paper_bgcolor="#0a0e14",
+                plot_bgcolor="#0d1520", height=280,
+                xaxis_title="Opinión del super-agente",
+                yaxis_title="Nº de clústeres",
+                xaxis=dict(range=[-1.05, 1.05]),
+                margin=dict(l=10, r=10, t=10, b=10),
+            )
+            st.plotly_chart(fig_hist, use_container_width=True)
+
+            # ── Shock externo ─────────────────────────────────────────────────
+            with st.expander("💥 Aplicar Shock Externo (perturbación masiva)"):
+                st.markdown(
+                    "Simula un evento externo — noticia viral, crisis económica, cambio político — "
+                    "que perturba la opinión de una fracción de la red y reactiva clústeres dormidos."
+                )
+                sc1, sc2 = st.columns(2)
+                with sc1:
+                    shock_val = st.slider("Intensidad del shock", -1.0, 1.0, 0.3, 0.05)
+                    shock_frac = st.slider("Fracción de agentes afectados", 0.05, 1.0, 0.2, 0.05)
+                if st.button("⚡ Aplicar shock y re-simular"):
+                    ms_engine.apply_shock(shock_value=shock_val, fraction=shock_frac)
+                    with st.spinner("Re-simulando tras el shock..."):
+                        ms_result2 = ms_engine.run(steps=ms_steps // 2)
+                    st.success(
+                        f"Shock aplicado. Opinión post-shock: "
+                        f"{ms_result2['mean_opinion']:+.3f} "
+                        f"(era {ms_result['mean_opinion']:+.3f})"
+                    )
+                    post_hist = ms_result2["opinion_history"]
+                    fig_post = go.Figure()
+                    fig_post.add_trace(go.Scatter(
+                        y=post_hist, name="Post-shock",
+                        line=dict(color="#c3a6ff", width=2),
+                    ))
+                    fig_post.add_hline(y=0, line_dash="dot", line_color="#3d5166")
+                    fig_post.update_layout(
+                        template="plotly_dark", paper_bgcolor="#0a0e14",
+                        plot_bgcolor="#0d1520", height=250,
+                        xaxis_title="Paso", yaxis_title="Opinión media",
+                        margin=dict(l=10, r=10, t=10, b=10),
+                    )
+                    st.plotly_chart(fig_post, use_container_width=True)
+
+            # ── Exportar datos masivos ────────────────────────────────────────
+            with st.expander("⬇️ Exportar datos de simulación masiva"):
+                df_ms = pd.DataFrame({
+                    "cluster_id":      range(ms_M),
+                    "opinion_final":   ms_result["cluster_opinions"],
+                    "n_agents":        ms_result["cluster_counts"],
+                })
+                st.dataframe(df_ms, use_container_width=True)
+                st.download_button(
+                    "⬇ CSV Clústeres",
+                    data=df_ms.to_csv(index=False),
+                    file_name="beyondsight_masiva.csv",
+                    mime="text/csv",
+                )
+
+        else:
+            st.markdown("""
+            <div style="border:1px dashed #1a2535;border-radius:4px;padding:48px;text-align:center;margin-top:2rem;">
+                <div style="font-family:'IBM Plex Mono',monospace;color:#3d5166;font-size:0.8rem;letter-spacing:2px;">
+                    CONFIGURA LA ESCALA Y LAS ESTRATEGIAS · PULSA ⚡ SIMULAR MASIVA ·
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+            with st.expander("📖 ¿Cómo funciona la Simulación Masiva?"):
+                st.markdown("""
+**4 estrategias de eficiencia integradas:**
+
+| # | Estrategia | Ahorro | Cómo funciona |
+|---|---|---|---|
+| 1 | **LOD — Super-Agentes** | O(N²→M²) menos RAM | N agentes → M clústeres representativos. Solo se simula la dinámica de M centros. |
+| 2 | **Cuantización uint8** | ~87.5% menos RAM | Estado almacenado en 1 byte/parámetro vs 8 bytes float64. Resolución ≈ 0.008. |
+| 3 | **Event-Driven** | Variable en CPU | Solo los super-agentes con cambios significativos se actualizan. Los demás duermen. |
+| 4 | **GPU Offloading** | 10-100× en velocidad | Si CuPy o PyTorch+CUDA está disponible, las multiplicaciones matriciales van a GPU. |
+
+**Ejemplo de ahorro combinado:**
+- N = 1 000 000 agentes, K = 5 dimensiones, float64
+- Sin optimizar: 1M × 5 × 8 bytes = **40 MB**
+- Con LOD (M=316) + uint8: 316 × 5 × 1 byte = **~1.6 KB** — ahorro del **99.996%**
+
+**¿Cuándo usar cada modo?**
+- Hasta N=10 000: Simulación Multicapa (Tab 3) — precisión completa por agente.
+- N=10 000 – 1 000 000: Simulación Masiva — estadísticas de clúster, eficiencia máxima.
+- Shock externo: perturba la red en caliente y observa la respuesta de los clústeres dormidos.
+                """)
+
