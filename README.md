@@ -10,7 +10,7 @@ pinned: false
 
 # BeyondSight
 
-[![License: PPL 3.0](https://img.shields.io/badge/License-PROSPERITY_PUBLIC_V3.0-blue.svg)](https://prosperitylicense.com)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
 [![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
 [![PVU Validation](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
@@ -21,7 +21,9 @@ Hybrid social dynamics simulator — Numerical core + LLM as regime selector.
 
 BeyondSight bridges the gap between classic mathematical models of opinion formation and the contextual flexibility of Large Language Models (LLMs).
 
-At the heart of BeyondSight lies the **Social Architect** — a reverse-engineering LLM agent that discovers the precise sequence of mathematical interventions needed to steer any social network t[...] 
+At the heart of BeyondSight lies the **Social Architect** — a reverse-engineering LLM agent that discovers the precise sequence of mathematical interventions needed to steer any social network toward a desired outcome. Rather than predicting where a network *will* go, the Social Architect determines exactly *how to get* where you want.
+
+Each individual is no longer a scalar opinion but a **multidimensional state vector** encoding simultaneous behaviors — cooperation, hierarchy recognition, income, information access — evolving in parallel across three superimposed network layers (social, digital, economic) modulated by fixed sociodemographic attributes such as religion, education, and age.
 
 ## Theoretical Foundations and Research
 
@@ -36,7 +38,8 @@ The project is inspired by fundamental opinion dynamics models and cutting-edge 
 - **Co-evolutionary Networks and Homophily (Axelrod, 1997):** Influence intensity varies by opinion similarity, generating endogenous echo chambers.
 - **Replicator Equation — Evolutionary Game Theory (Taylor & Jonker, 1978):** Strategy frequencies evolve according to relative payoff via the replicator ODE integrated with RK45.
 - **Confirmation Bias:** A cognitive transversal mechanism that systematically attenuates the weight of information contrary to the agent's current belief.
-- **Langevin Energy Dynamics:** Physics-inspired stochastic differential equations where agents move through a configurable social energy landscape of attractors and repellers — BeyondSight's ne[...] 
+- **Langevin Energy Dynamics:** Physics-inspired stochastic differential equations where agents move through a configurable social energy landscape of attractors and repellers.
+- **Multilayer Sociodemographic Langevin:** Vector extension of Langevin dynamics to five simultaneous behaviors per agent `(opinion, cooperation, hierarchy, income, info_access)`, across three superimposed network layers (social, digital, economic), with noise modulation by fixed demographic attributes (religion, education, age, gender). The multidimensional social potential generates emergent patterns: opinion polarization coexisting with cooperation clustering and hierarchy stratification.
 
 ### Extended Models
 
@@ -115,6 +118,72 @@ The empirical data is integrated into the project through several key components
 This integration ensures simulations are empirically grounded, enhancing their realism and applicability to real-world social dynamics.
 
 The master dictionary consolidates 43 parameters spanning network dynamics, temporal decay, and game-theoretic payoffs, all normalized to the bipolar `[-1.0, 1.0]` spectrum.
+
+## Multilayer Sociodemographic Engine
+
+While the Energy Landscape Engine operates on scalar opinions, the **Multilayer Engine** (`multilayer_engine.py`) elevates each agent to a five-dimensional state vector capturing their distinct roles in social dynamics simultaneously:
+
+```
+x_i(t) = (opinion_i, cooperation_i, hierarchy_i, income_i, info_access_i)
+```
+
+### Three-layer architecture
+
+Three differentiated adjacency matrices model the interaction spaces an individual inhabits in parallel:
+
+| Layer | Network model | Phenomenon captured |
+|-------|---------------|---------------------|
+| **Social** | Watts-Strogatz (small world) | Face-to-face contacts, local community |
+| **Digital** | Barabási-Albert (scale-free) | Social media, viral content, echo chambers |
+| **Economic** | Hierarchical (star + hubs) | Authority flow, labor market, wages |
+
+Layer weights (`w_social`, `w_digital`, `w_economic`) are tunable from the UI, enabling exploration of scenarios where digital influence overtakes community bonds or economic hierarchy dominates opinion formation.
+
+### Sociodemographic modulation (theta_matrix)
+
+Each agent has fixed attributes that modulate their sensitivity to noise and signals across each behavioral dimension:
+
+```python
+theta[i, opinion]     *= 1 + 0.5 * religion_i    # religious: more sensitive to moral signals
+theta[i, cooperation] *= 1 + 0.3 * education_i   # educated: greater cooperative tendency
+theta[i, hierarchy]   *= 1 + 0.4 * (age_i / 2)  # older: more deference to authority
+```
+
+This modulation produces realistic heterogeneity: two agents starting at the same opinion position diverge at different rates depending on their demographic profile, replicating variability observed in surveys and field studies.
+
+### Multidimensional social potential
+
+The gradient ∇U(x) acts on all five dimensions with independent but coupled dynamics:
+- **Opinion**: double well (emergent polarization toward ±0.7)
+- **Cooperation**: attraction toward the agent's social alignment level
+- **Hierarchy**: bifurcation toward extremes (rebel ↔ conformist)
+- **Income**: centering force with friction proportional to hierarchy level
+- **Info access**: slow decay modulated by cooperation
+
+### Programmatic API
+
+```python
+from multilayer_engine import MultilayerEngine
+
+engine = MultilayerEngine(
+    N=200,
+    layer_weights=(0.4, 0.3, 0.3),   # social, digital, economic
+    coupling=0.3,
+    attr_config={"religion_prob": 0.35, "age_dist": (0.25, 0.45, 0.30)},
+)
+history = engine.run(steps=500)
+
+# Trajectories by age group
+traj_df = engine.trajectories_by_attribute("age_group")
+
+# Behavioral correlation matrix (5×5)
+corr = engine.behavior_correlation_matrix()
+
+# Social landscape metrics
+landscape = engine.get_landscape()
+```
+
+Layer and attribute defaults can be customized without touching code via `configs/multilayer.yaml`.
 
 ## Energy Landscape Engine
 
@@ -398,6 +467,7 @@ BeyondSight/
 │   ├── turning_points.py         # Turning-point detection and F1 scoring
 │   └── io.py                     # PVU case loader
 ├── configs/
+│   ├── multilayer.yaml               # Layer and sociodemographic attribute configuration
 │   └── pvu.yaml                  # Runner configuration (split ratios, thresholds, seeds)
 ├── datasets/
 │   └── pvu_cases/                # PVU case folders (sample_case_001, sample_case_002, …)
@@ -409,6 +479,7 @@ BeyondSight/
 │   ├── test_energy_core.py       # Energy engine test suite (42 tests)
 │   ├── test_game_theory.py       # Strategic Game Theory layer tests
 │   ├── test_integration_llm.py   # LLM selector integration tests
+│   ├── test_multilayer.py        # Multilayer engine test suite (27 tests)
 │   ├── test_pvu_runner.py        # PVU benchmark runner tests
 │   ├── test_simulator.py         # Simulator core tests
 │   ├── test_social_architect.py
@@ -416,7 +487,7 @@ BeyondSight/
 ├── docs/                         # MkDocs documentation sources
 ├── .env.example                  # Environment variable template
 ├── .gitignore
-├── app.py                        # Streamlit interface
+├── app.py                        # Streamlit interface (3 tabs: Simulation, Architect, Multilayer)
 ├── cache_manager.py              # RAM + SQLite landscape cache
 ├── empirical_calibration.py      # Master empirical calibration dictionary (43 parameters)
 ├── empirical_config.py           # Calibration loader — EMPIRICAL_BASE_LOADED flag
@@ -426,6 +497,7 @@ BeyondSight/
 ├── extended_models.py            # Extended rules: Nash (10), Bayesian BN (11), SIR (12)
 ├── i18n.py                       # Internationalization helpers (English / Spanish)
 ├── langchain_workflows.py        # LangChain chains for Social & Programmatic Architects
+├── multilayer_engine.py          # Multilayer Sociodemographic Engine (5D vector + 3 layers + theta)
 ├── programmatic_architect.py     # Programmatic Architect (archetypes + cache + LLM)
 ├── README.md                     # Documentation (English)
 ├── README_ES.md                  # Documentation (Spanish)
@@ -452,12 +524,11 @@ In Hugging Face Spaces, you can set these as **Secrets**.
 
 ## License
 
-This project is under the **Prosperity Public License 3.0.0**.
+This project is licensed under the **Apache License 2.0** — free for personal, academic, and commercial use with attribution to the author.
 
-- **Communal/Personal/Educational Use:** Free and open.
-- **Corporate Use:** Companies can test the software for 30 days. After that, a commercial license must be acquired.
+The logic, structure, variables, and system design belong to [Adlgr87](https://github.com/Adlgr87). The code is open source so anyone can use, modify, and build on it — credit always appreciated.
 
-For commercial inquiries, contact [Adlgr87](https://github.com/Adlgr87) on GitHub.
+For consulting inquiries or collaborations, contact [Adlgr87](https://github.com/Adlgr87) on GitHub.
 
 ---
 *Developed with a focus on AI interpretability and the study of complex social systems.*

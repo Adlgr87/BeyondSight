@@ -20,3 +20,4 @@ numba>=0.65.0
 langchain>=1.2.0
 langchain-openai>=1.2.0
 langchain-groq>=1.1.0
+pyyaml>=6.0
