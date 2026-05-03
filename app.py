@@ -181,10 +181,10 @@ if _EMPIRICAL_VALIDATION_FLAGS:
 # ------------------------------------------------------------
 with st.sidebar:
 
-    st.markdown("### BeyondSight Enterprise")
-    st.markdown("Gratis para uso no comercial (Prosperity Public License 3.0). Para agencias, corporativos y consultoría privada, se requiere Licencia Comercial.")
-    st.link_button("💼 Adquirir Licencia Comercial", "mailto:BeyondSight@ejemplo.com")
-    st.link_button("🤝 Contratar Consultoría", "mailto:BeyondSight@ejemplo.com")
+    st.markdown("### BeyondSight Open")
+    st.markdown("Proyecto de código abierto bajo licencia Apache 2.0. Libre para uso personal, académico y comercial con atribución al autor.")
+    st.link_button("💼 Consultoría & Servicios", "mailto:BeyondSight@ejemplo.com")
+    st.link_button("🤝 Contribuir al Proyecto", "https://github.com/Adlgr87/BeyondSight")
     st.markdown("---")
 
     # ── LANGUAGE ───────────────────────────────────────────
@@ -455,7 +455,7 @@ with st.sidebar:
 # ------------------------------------------------------------
 # LÓGICA PRINCIPAL
 # ------------------------------------------------------------
-tab1, tab2 = st.tabs(['📊 Simulación Tradicional', '🧠 Arquitecto Social (Modo Inverso)'])
+tab1, tab2, tab3 = st.tabs(['📊 Simulación Tradicional', '🧠 Arquitecto Social (Modo Inverso)', '🌐 Simulación Multicapa'])
 
 with tab1:
     if correr:
@@ -953,3 +953,267 @@ with tab2:
                 data=report_text,
                 file_name=f"Reporte_BeyondSight_{modo_inv.capitalize()}.txt",
             )
+
+
+# ------------------------------------------------------------
+# TAB 3 — SIMULACIÓN MULTICAPA SOCIODEMOGRÁFICA
+# Dinámica vectorial con capas de red diferenciadas y atributos
+# sociodemográficos fijos por agente.
+# ------------------------------------------------------------
+
+with tab3:
+    import plotly.graph_objects as go
+
+    try:
+        from multilayer_engine import (
+            MultilayerEngine,
+            generate_attributes,
+            COL_OPINION,
+            COL_COOP,
+            K as ML_K,
+        )
+        _ML_AVAILABLE = True
+    except ImportError as _ml_err:
+        _ML_AVAILABLE = False
+        st.error(f"multilayer_engine no disponible: {_ml_err}")
+
+    if _ML_AVAILABLE:
+        st.markdown("### 🌐 Simulador Social Multicapa")
+        st.markdown(
+            "Cada agente es un **vector de estado 5D** "
+            "`(opinión, cooperación, jerarquía, ingreso, acceso_info)` "
+            "que evoluciona sobre tres redes superpuestas — social, digital y económica — "
+            "moduladas por atributos sociodemográficos fijos."
+        )
+
+        # ── Controles en columnas ─────────────────────────────────────────────
+        ml_col1, ml_col2, ml_col3 = st.columns(3)
+
+        with ml_col1:
+            ml_n = st.slider("👥 Agentes (N)", 20, 500, 100, 10,
+                             help="Número total de agentes en la simulación.")
+            ml_steps = st.slider("⏱ Pasos", 50, 500, 150, 10)
+            ml_dt = st.select_slider("Δt (paso de tiempo)", [0.001, 0.005, 0.01, 0.02, 0.05], value=0.01)
+
+        with ml_col2:
+            st.markdown("**Pesos de capa**")
+            w_social   = st.slider("🤝 Social (Watts-Strogatz)",   0.0, 1.0, 0.4, 0.05)
+            w_digital  = st.slider("📱 Digital (Libre de Escala)", 0.0, 1.0, 0.3, 0.05)
+            w_economic = st.slider("💼 Económica (Jerárquica)",    0.0, 1.0, 0.3, 0.05)
+            ml_coupling = st.slider("λ Acoplamiento social", 0.05, 1.0, 0.3, 0.05)
+
+        with ml_col3:
+            st.markdown("**Distribución de atributos**")
+            pct_young = st.slider("% Jóvenes (18-35)",   0, 100, 30, 5)
+            pct_mid   = st.slider("% Adultos (36-55)",   0, 100, 40, 5)
+            pct_old   = 100 - pct_young - pct_mid
+            pct_old   = max(0, pct_old)
+            st.caption(f"→ Adultos mayores (56+): {pct_old}%")
+            ml_religion  = st.slider("⛪ % Religiosos",  0, 100, 30, 5) / 100.0
+            ml_edu_scale = st.slider("🎓 Escala educativa", 0.5, 1.5, 1.0, 0.1)
+            ml_seed = st.number_input("🎲 Semilla", value=42, step=1)
+
+        if pct_young + pct_mid > 100:
+            st.warning(
+                f"⚠️ La suma de jóvenes ({pct_young}%) + adultos ({pct_mid}%) "
+                f"supera el 100%. Se ajusta el grupo mayor a 0%."
+            )
+
+        age_dist = (pct_young / 100.0, pct_mid / 100.0, pct_old / 100.0)
+        total_w  = w_social + w_digital + w_economic
+        layer_w  = (
+            (w_social / total_w, w_digital / total_w, w_economic / total_w)
+            if total_w > 0 else (0.4, 0.3, 0.3)
+        )
+
+        ml_run = st.button("🚀 Simular Multicapa", type="primary")
+
+        if ml_run:
+            with st.spinner("Simulando dinámica multicapa con Numba..."):
+                engine = MultilayerEngine(
+                    N=ml_n,
+                    layer_weights=layer_w,
+                    coupling=ml_coupling,
+                    dt=ml_dt,
+                    range_type="bipolar",
+                    attr_config={
+                        "age_dist":       age_dist,
+                        "religion_prob":  ml_religion,
+                        "education_scale": ml_edu_scale,
+                    },
+                    seed=int(ml_seed),
+                )
+                engine.run(steps=ml_steps)
+
+            # ── Métricas finales ──────────────────────────────────────────────
+            st.markdown("#### Métricas del paisaje social")
+            landscape = engine.get_landscape()
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            with mc1:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Opinión media</div>
+                    <div class="metric-value">{landscape['mean_opinion']:+.3f}</div>
+                </div>""", unsafe_allow_html=True)
+            with mc2:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Polarización</div>
+                    <div class="metric-value">{landscape['polarization']:.3f}</div>
+                </div>""", unsafe_allow_html=True)
+            with mc3:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Cooperación media</div>
+                    <div class="metric-value">{landscape['mean_cooperation']:.3f}</div>
+                </div>""", unsafe_allow_html=True)
+            with mc4:
+                st.markdown(f"""<div class="metric-card">
+                    <div class="metric-label">Jerarquía media</div>
+                    <div class="metric-value">{landscape['mean_hierarchy']:.3f}</div>
+                </div>""", unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            plot_c1, plot_c2 = st.columns(2)
+
+            # ── Plot 1: Trayectorias por grupo etario ─────────────────────────
+            with plot_c1:
+                st.markdown("**Trayectoria de opinión por grupo etario**")
+                traj_df = engine.trajectories_by_attribute("age_group")
+                age_labels = {0: "Jóvenes (18-35)", 1: "Adultos (36-55)", 2: "Mayores (56+)"}
+                age_colors = {0: "#5ccfe6", 1: "#bae67e", 2: "#c3a6ff"}
+                fig_traj = go.Figure()
+                for age_val in sorted(traj_df["age_group"].unique()):
+                    sub = traj_df[traj_df["age_group"] == age_val]
+                    fig_traj.add_trace(go.Scatter(
+                        x=sub["step"], y=sub["mean_opinion"],
+                        name=age_labels.get(int(age_val), str(age_val)),
+                        line=dict(color=age_colors.get(int(age_val), "#ffffff"), width=2),
+                    ))
+                fig_traj.add_hline(y=0, line_dash="dot", line_color="#3d5166",
+                                   annotation_text="neutro")
+                fig_traj.update_layout(
+                    template="plotly_dark", paper_bgcolor="#0a0e14",
+                    plot_bgcolor="#0d1520", height=320,
+                    xaxis_title="Paso", yaxis_title="Opinión media",
+                    legend=dict(orientation="h", y=-0.3),
+                    margin=dict(l=10, r=10, t=10, b=10),
+                )
+                st.plotly_chart(fig_traj, use_container_width=True)
+
+            # ── Plot 2: Heatmap de correlaciones entre comportamientos ─────────
+            with plot_c2:
+                st.markdown("**Correlaciones entre comportamientos**")
+                corr = engine.behavior_correlation_matrix()
+                behavior_labels = ["Opinión", "Cooperación", "Jerarquía", "Ingreso", "Info"]
+                fig_corr = go.Figure(go.Heatmap(
+                    z=corr,
+                    x=behavior_labels,
+                    y=behavior_labels,
+                    colorscale="RdBu",
+                    zmid=0, zmin=-1, zmax=1,
+                    text=np.round(corr, 2),
+                    texttemplate="%{text}",
+                    showscale=True,
+                ))
+                fig_corr.update_layout(
+                    template="plotly_dark", paper_bgcolor="#0a0e14",
+                    plot_bgcolor="#0d1520", height=320,
+                    margin=dict(l=10, r=10, t=10, b=10),
+                )
+                st.plotly_chart(fig_corr, use_container_width=True)
+
+            # ── Plot 3: Paisaje 2D opinión vs cooperación ─────────────────────
+            st.markdown("**Paisaje 2D: Opinión × Cooperación (estado final)**")
+            attrs_df = engine.attributes_df
+            age_arr  = attrs_df["age_group"].to_numpy()
+            rel_arr  = attrs_df["religion"].to_numpy()
+            fig_land = go.Figure()
+
+            group_cfg = [
+                (age_arr == 0, "#5ccfe6", "Jóvenes"),
+                (age_arr == 1, "#bae67e", "Adultos"),
+                (age_arr == 2, "#c3a6ff", "Mayores"),
+            ]
+            for mask, color, label in group_cfg:
+                if mask.sum() > 0:
+                    fig_land.add_trace(go.Scatter(
+                        x=engine.x[mask, COL_OPINION],
+                        y=engine.x[mask, COL_COOP],
+                        mode="markers",
+                        name=label,
+                        marker=dict(color=color, size=5, opacity=0.6),
+                    ))
+
+            fig_land.update_layout(
+                template="plotly_dark", paper_bgcolor="#0a0e14",
+                plot_bgcolor="#0d1520", height=380,
+                xaxis_title="Opinión", yaxis_title="Cooperación",
+                xaxis=dict(range=[-1.05, 1.05]),
+                yaxis=dict(range=[-0.05, 1.05]),
+                legend=dict(orientation="h", y=-0.2),
+                margin=dict(l=10, r=10, t=10, b=10),
+            )
+            st.plotly_chart(fig_land, use_container_width=True)
+
+            # ── LLM bias dirigido ─────────────────────────────────────────────
+            with st.expander("🎯 Narrativa LLM dirigida a segmento demográfico"):
+                from multilayer_engine import targeted_llm_bias
+                bias_layer = st.selectbox(
+                    "Capa objetivo", ["digital", "social", "economic"], key="ml_bias_layer"
+                )
+                bias_demo  = st.selectbox(
+                    "Grupo demográfico", [
+                        "religion=1", "religion=0",
+                        "age_group=0", "age_group=2",
+                        "gender=1", "gender=0",
+                    ], key="ml_bias_demo"
+                )
+                if st.button("Generar narrativa", key="ml_bias_btn"):
+                    with st.spinner("Generando argumento..."):
+                        narrative = targeted_llm_bias(
+                            layer_target=bias_layer,
+                            demographic=bias_demo,
+                            proveedor=proveedor,
+                            api_key=api_key,
+                            modelo=modelo,
+                        )
+                    st.success(narrative)
+
+            # ── Exportar datos multicapa ──────────────────────────────────────
+            with st.expander("⬇️ Exportar datos multicapa"):
+                final_df = pd.DataFrame(engine.x, columns=["opinion", "cooperation",
+                                                            "hierarchy", "income", "info_access"])
+                final_df = pd.concat([final_df, engine.attributes_df.reset_index(drop=True)], axis=1)
+                st.dataframe(final_df, use_container_width=True)
+                st.download_button("⬇ CSV Estado Final",
+                                   data=final_df.to_csv(index=False),
+                                   file_name="beyondsight_multilayer.csv",
+                                   mime="text/csv")
+
+        else:
+            st.markdown("""
+            <div style="border:1px dashed #1a2535;border-radius:4px;padding:48px;text-align:center;margin-top:2rem;">
+                <div style="font-family:'IBM Plex Mono',monospace;color:#3d5166;font-size:0.8rem;letter-spacing:2px;">
+                    CONFIGURA LAS CAPAS Y PULSA · SIMULAR MULTICAPA ·
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+            with st.expander("📖 ¿Qué es la Simulación Multicapa?"):
+                st.markdown("""
+**Vector de estado por agente** `x_i ∈ ℝ⁵`:
+
+| Columna | Variable | Rango |
+|---------|----------|-------|
+| 0 | Opinión (s_i) | [-1, 1] |
+| 1 | Cooperación (c_i) | [0, 1] |
+| 2 | Jerarquía (h_i) | [0, 1] |
+| 3 | Ingreso (y_i) | [0, 1] |
+| 4 | Acceso a información (φ_i) | [0, 1] |
+
+**Tres capas de red superpuestas**:
+- 🤝 **Social** (Watts-Strogatz): red de mundo pequeño — contactos cara a cara.
+- 📱 **Digital** (Barabási-Albert): red libre de escala — redes sociales y medios virales.
+- 💼 **Económica** (Jerárquica): flujo de autoridad descendente — mercados y empleo.
+
+**Modulación por atributos**: la matriz θ(a_i) amplifica el ruido de cada agente
+según su religiosidad, educación y edad, reproduciendo la heterogeneidad real de
+las sociedades complejas.
+                """)

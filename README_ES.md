@@ -10,7 +10,7 @@ pinned: false
 
 # BeyondSight
 
-[![License: PPL 3.0](https://img.shields.io/badge/License-PROSPERITY_PUBLIC_V3.0-blue.svg)](https://prosperitylicense.com)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![tests](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pytest.yml)
 [![docs](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/mkdocs.yml)
 [![PVU Validación](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml/badge.svg)](https://github.com/Adlgr87/BeyondSight/actions/workflows/pvu-validation.yml)
@@ -22,6 +22,8 @@ Simulador híbrido de dinámica social — Núcleo numérico + LLM como selector
 BeyondSight cierra la brecha entre los modelos matemáticos clásicos de formación de opinión y la flexibilidad contextual de los Modelos de Lenguaje de Gran Escala (LLMs).
 
 En el corazón de BeyondSight se encuentra el **Arquitecto Social** — un agente LLM de ingeniería inversa que calcula la secuencia precisa de intervenciones matemáticas necesarias para llevar cualquier red social hacia el resultado deseado. En lugar de predecir hacia dónde *irá* una red, el Arquitecto Social determina exactamente *cómo llegar* adonde quieres ir.
+
+Cada individuo ya no es un escalar de opinión, sino un **vector de estado multidimensional** que codifica comportamientos simultáneos — cooperación, reconocimiento de jerarquía, ingreso, acceso a información — evolucionando en paralelo sobre tres capas de red superpuestas (social, digital, económica) moduladas por atributos sociodemográficos fijos como religión, educación y edad.
 
 ## ¿Por Qué BeyondSight?
 
@@ -71,6 +73,7 @@ El proyecto se inspira en modelos fundamentales de dinámica de opinión y en in
 - **Ecuación Replicadora — Teoría de Juegos Evolutiva (Taylor & Jonker, 1978):** Las frecuencias de estrategia evolucionan según el pago relativo mediante la ODE replicadora integrada con RK45.
 - **Sesgo de Confirmación:** Un mecanismo transversal cognitivo que atenúa sistemáticamente el peso de la información contraria a la creencia actual del agente.
 - **Dinámica de Energía de Langevin:** Ecuaciones diferenciales estocásticas de inspiración física donde los agentes se mueven a través de un paisaje de energía social configurable con atractores y repulsores — el núcleo de simulación más reciente de BeyondSight.
+- **Langevin Multicapa Sociodemográfica:** Extensión vectorial de la dinámica de Langevin a cinco comportamientos simultáneos por agente `(opinión, cooperación, jerarquía, ingreso, acceso_info)`, sobre tres capas de red superpuestas (social, digital, económica), con modulación de ruido por atributos demográficos fijos (religión, educación, edad, género). El potencial social multidimensional genera patrones emergentes: polarización de opiniones coexistiendo con clustering de cooperación y estratificación de jerarquía.
 
 ### Modelos Extendidos
 
@@ -107,7 +110,77 @@ Transparencia sobre la incertidumbre es, en última instancia, la forma más hon
 
 El diccionario maestro (`empirical_calibration.py`) consolida 43 parámetros que abarcan dinámica de redes, decaimiento temporal y pagos de teoría de juegos, todos normalizados al espectro bipolar `[-1.0, 1.0]` utilizado por todas las reglas de simulación. Se rastrean seis bloques culturales — latino, anglosajón, asiático oriental, del sur de Asia, de Medio Oriente y nórdico — y cada parámetro puede llevar valores de varianza específicos por bloque. Los índices de calibración se cargan al inicio mediante `empirical_config.py`, que expone el diccionario maestro y un indicador `EMPIRICAL_BASE_LOADED` para los consumidores posteriores. Los parámetros sin consenso empírico se etiquetan explícitamente como `pending_empirical_data`.
 
-## Motor de Paisaje Energético
+## Motor Multicapa Sociodemográfico
+
+Mientras el Motor de Paisaje Energético opera sobre opiniones escalares, el **Motor Multicapa** (`multilayer_engine.py`) eleva cada agente a un vector de estado de cinco dimensiones que captura simultáneamente sus distintos roles en la dinámica social:
+
+```
+x_i(t) = (opinion_i, cooperation_i, hierarchy_i, income_i, info_access_i)
+```
+
+### Arquitectura de tres capas
+
+Tres matrices de adyacencia diferenciadas modelan los espacios de interacción que un individuo habita en paralelo:
+
+| Capa | Modelo de red | Fenómeno que captura |
+|------|---------------|---------------------|
+| **Social** | Watts-Strogatz (mundo pequeño) | Contactos cara a cara, comunidad local |
+| **Digital** | Barabási-Albert (libre de escala) | Redes sociales, medios virales, cámaras de eco |
+| **Económica** | Jerárquica (estrella + hubs) | Flujo de autoridad, mercado laboral, salarios |
+
+Los pesos de cada capa (`w_social`, `w_digital`, `w_economic`) son configurables desde la interfaz, permitiendo explorar escenarios donde la influencia digital supera a la comunitaria o donde la jerarquía económica domina la formación de opinión.
+
+### Modulación sociodemográfica (theta_matrix)
+
+Cada agente tiene atributos fijos que modulan su sensibilidad al ruido y a las señales de cada dimensión:
+
+```python
+theta[i, opinion]     *= 1 + 0.5 * religion_i    # religiosos: más sensibles moralmente
+theta[i, cooperation] *= 1 + 0.3 * education_i   # educados: mayor tendencia cooperativa
+theta[i, hierarchy]   *= 1 + 0.4 * (age_i / 2)  # mayores: más deferencia a la autoridad
+```
+
+Esta modulación produce heterogeneidad realista: dos agentes con la misma posición de opinión inicial divergen a distintas tasas según su perfil demográfico, replicando la variabilidad observada en encuestas y estudios de campo.
+
+### Potencial social multidimensional
+
+El gradiente ∇U(x) actúa sobre las cinco dimensiones con dinámicas independientes pero acopladas:
+- **Opinión**: doble pozo (polarización emergente hacia ±0.7)
+- **Cooperación**: atracción hacia el nivel de alineación social del agente
+- **Jerarquía**: bifurcación hacia los extremos (rebelde ↔ conformista)
+- **Ingreso**: centrado con fricción proporcional al nivel jerárquico
+- **Acceso info**: decaimiento lento modulado por la cooperación
+
+### Aceleración Numba
+
+El kernel de integración (`multilayer_langevin_step`) está compilado con `@njit` de Numba. En la primera llamada se compila una sola vez; las siguientes son de velocidad nativa. Para N=200 agentes, 1000 pasos se completan en menos de 5 segundos en hardware estándar.
+
+### Uso programático
+
+```python
+from multilayer_engine import MultilayerEngine
+
+engine = MultilayerEngine(
+    N=200,
+    layer_weights=(0.4, 0.3, 0.3),   # social, digital, económica
+    coupling=0.3,
+    attr_config={"religion_prob": 0.35, "age_dist": (0.25, 0.45, 0.30)},
+)
+history = engine.run(steps=500)
+
+# Trayectorias por grupo etario
+traj_df = engine.trajectories_by_attribute("age_group")
+
+# Correlaciones entre los 5 comportamientos
+corr = engine.behavior_correlation_matrix()
+
+# Métricas del paisaje social final
+landscape = engine.get_landscape()
+```
+
+La configuración predeterminada de capas y atributos se puede personalizar sin tocar código a través de `configs/multilayer.yaml`.
+
+
 
 El **Motor de Paisaje Energético** de BeyondSight modela la dinámica social como un sistema físico donde la opinión de cada agente evoluciona según una ecuación diferencial estocástica de Langevin:
 
@@ -274,6 +347,7 @@ BeyondSight/
 │   ├── turning_points.py         # Detección de puntos de giro y scoring F1
 │   └── io.py                     # Cargador de casos PVU
 ├── configs/
+│   ├── multilayer.yaml               # Configuración de capas y atributos sociodemográficos
 │   └── pvu.yaml                  # Configuración del runner (ratios, umbrales, semillas)
 ├── datasets/
 │   └── pvu_cases/                # Carpetas de casos PVU (sample_case_001, sample_case_002, …)
@@ -285,6 +359,7 @@ BeyondSight/
 │   ├── test_energy_core.py       # Suite de pruebas del motor energético (42 tests)
 │   ├── test_game_theory.py       # Pruebas de la capa de Teoría de Juegos estratégica
 │   ├── test_integration_llm.py   # Pruebas de integración del selector LLM
+│   ├── test_multilayer.py        # Suite de pruebas del motor multicapa (27 tests)
 │   ├── test_pvu_runner.py        # Pruebas del runner de benchmark PVU
 │   ├── test_simulator.py         # Pruebas del núcleo simulador
 │   ├── test_social_architect.py
@@ -292,7 +367,7 @@ BeyondSight/
 ├── docs/                         # Fuentes de documentación MkDocs
 ├── .env.example                  # Plantilla de variables de entorno
 ├── .gitignore
-├── app.py                        # Interfaz Streamlit
+├── app.py                        # Interfaz Streamlit (3 tabs: Simulación, Arquitecto, Multicapa)
 ├── cache_manager.py              # Caché RAM + SQLite para paisajes sociales
 ├── empirical_calibration.py      # Diccionario maestro de calibración empírica (43 parámetros)
 ├── empirical_config.py           # Cargador de calibración — indicador EMPIRICAL_BASE_LOADED
@@ -302,6 +377,7 @@ BeyondSight/
 ├── extended_models.py            # Reglas extendidas: Nash (10), Red Bayesiana (11), SIR (12)
 ├── i18n.py                       # Ayudantes de internacionalización
 ├── langchain_workflows.py        # Cadenas LangChain para Arquitectos Social y Programático
+├── multilayer_engine.py          # Motor Multicapa Sociodemográfico (vector 5D + 3 capas + theta)
 ├── programmatic_architect.py     # Arquitecto Programático (arquetipos + caché + LLM)
 ├── README.md                     # Documentación (inglés)
 ├── README_ES.md                  # Documentación (español)
@@ -314,14 +390,13 @@ BeyondSight/
 └── visualizations.py             # Ayudantes de visualización de red
 ```
 
-## Licencia Ética
+## Licencia
 
-Este proyecto está bajo la **Prosperity Public License 3.0.0**.
+Este proyecto está bajo la **Apache License 2.0** — libre para uso personal, académico y comercial con atribución al autor.
 
-- **Uso Comunal/Personal/Educativo:** Gratuito y libre.
-- **Uso Corporativo:** Las empresas pueden probar el software por 30 días. Tras ese periodo, deben adquirir una licencia comercial.
+La lógica, estructura, variables y diseño del sistema pertenecen a [Adlgr87](https://github.com/Adlgr87). El código es de código abierto para que cualquiera pueda usarlo, modificarlo y construir sobre él — crédito siempre bienvenido.
 
-Para consultas comerciales, contactar a [Adlgr87](https://github.com/Adlgr87) on GitHub.
+Para consultas sobre consultoría o colaboraciones, contactar a [Adlgr87](https://github.com/Adlgr87) en GitHub.
 
 ---
 *Desarrollado con un enfoque en la interpretabilidad de la IA y el estudio de sistemas sociales complejos.*
