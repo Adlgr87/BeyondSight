@@ -37,7 +37,9 @@ Fuente: `.env.example` (sin valores reales) + código. Ningún secreto real est�
 - gitleaks (CI) verde en HEAD; regex manual de secretos → 0 hallazgos en árbol.
 
 🟠 **Pendiente (plan)**
-- **SEC-01**: token Zapier en historial → rotación (owner).
+- **SEC-01 RESUELTO (2026-08-22)**: token Zapier invalidado por el owner y
+  eliminado del historial público vía `git filter-repo` (verificado: clon
+  fresco sin referencias; árbol final idéntico). Cerrado.
 - **SEC-02**: inconsistencia `dev` vs `development` en `api.py`.
 - **SEC-03**: `hmac.compare_digest` en ambos backends raíz.
 - CI no imprime secretos (workflows revisados: solo `secrets.GITHUB_TOKEN`/`HF_TOKEN` como env, nunca `echo`).

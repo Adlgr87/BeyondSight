@@ -9,22 +9,11 @@
 useDefault = true
 
 # ---------------------------------------------------------------------------
-# EXCEPTION 1 — historical Zapier token (SEC-01), pending owner rotation.
-#
-# Commit d99b06b3 ("Add Micro — Familias de Futuros module", 2026-07) added
-# `.codebuff/config.json` containing a real ZAPIER_MCP_TOKEN. PR #81 removed
-# the file but the token remains recoverable from the public git history and
-# is therefore considered COMPROMISED; rotation has been formally requested
-# from the repository owner (docs/production-readiness-audit.md, SEC-01).
-#
-# Why allowlist the commit: branch-push scans that inherit the full history
-# flag this dead commit on every run, which masks any NEW leak. Skipping ONLY
-# this exact commit keeps every other rule active. Remove this entry once the
-# token has been rotated (it is then harmless dead history).
+# NOTE: the former EXCEPTION 1 (SEC-01 historical Zapier token) was removed
+# on 2026-08-22 after the token was revoked by the owner and the secret was
+# purged from the public git history via `git filter-repo` (fresh-clone scan
+# verified clean). See docs/security/threat-model.md.
 # ---------------------------------------------------------------------------
-[[allowlists]]
-description = "SEC-01: known historical Zapier token, compromised & documented, owner rotation pending"
-commits = ["d99b06b364f07486ca51597560950813aade742c"]
 
 # ---------------------------------------------------------------------------
 # EXCEPTION 2 — non-secret fixture values used by tests/docs/examples.

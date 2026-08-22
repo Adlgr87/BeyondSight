@@ -21,7 +21,9 @@
 
 ## 3. Incidente conocido: secreto expuesto
 
-- **Token Zapier en historial git** (SEC-01): mitigación = rotación en el proveedor (owner). Hasta rotar, tratar el token como comprometido; el repo es público.
+- **Token Zapier en historial git** (SEC-01) — **RESUELTO (2026-08-22)**:
+  token invalidado por el owner e historial purgado con `git filter-repo`;
+  el secreto ya no es recuperable desde ningún clon fresco.
 
 ## 4. Escalamiento y comunicación
 

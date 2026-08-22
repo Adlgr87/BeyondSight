@@ -98,11 +98,18 @@ All notable changes to **MASSIVE** are documented here. This project follows
   `Docs Deploy` workflow; now gitignored.
 
 ### Security
-- **SEC-01 (requires owner action)**: a Zapier MCP token (108 chars) remains
-  recoverable from public git history (commit `dc2240c`, file
-  `.codebuff/config.json`, deleted later in PR #81 without rotation). It must
-  be considered compromised and rotated at the provider. Documented in
-  `docs/security/threat-model.md` and `docs/production-readiness-audit.md`.
+- **SEC-01 CLOSED (2026-08-22)**: the exposed Zapier MCP token was revoked by
+  the owner AND purged from the public git history via `git filter-repo`.
+  Verified end-to-end: a fresh clone contains zero references to the secret,
+  and the rewritten tip tree is bit-for-bit identical (`4c3ff54a`), so
+  runtime behavior of MASSIVE is unchanged. The corresponding `gitleaks.toml`
+  allowlist exception was removed (the flagged commit no longer exists) and
+  security docs updated (`threat-model`, `incidents`,
+  `secrets-and-configuration`, `production-readiness-audit`).
+- **SEC-01 (registro histórico, 2026-08-16)**: se detectó un token Zapier MCP
+  recuperable del historial público (commit `dc2240c`, archivo
+  `.codebuff/config.json`, borrado en PR #81 sin rotación). Fue tratado como
+  comprometido; rotado y purgado del historial — ver entrada de cierre arriba.
 
 ### Tests
 - Full suite now collects and passes with **no exclusions**: 521 tests green

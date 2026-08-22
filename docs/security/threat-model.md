@@ -31,7 +31,7 @@
 
 | ID | Amenaza | Vectores | Estado/mitigación actual | Gap |
 |----|---------|----------|--------------------------|-----|
-| T1 | Fuga de secreto versionado | historial git | gitleaks en HEAD ✅; **token Zapier en historial** | 🔴 rotar (SEC-01) |
+| T1 | Fuga de secreto versionado | historial git | gitleaks en HEAD ✅ e historial completo ✅ | 🟢 mitigado — SEC-01 resuelto (2026-08-22) |
 | T2 | Timing attack sobre API key | `!=` en auth | parcial | 🟡 SEC-03 |
 | T3 | Enumeración/abuso de API sin auth | fallback dev key | fallback solo en `development`; legacy además exige `dev` (inconsistencia SEC-02) | 🟠 unificar + tests |
 | T4 | Prompt injection → config maliciosa | intent NL → wizard LLM → config de motores | respuestas LLM pasan por `wizard_config`; campos finales validados por DTOs `extra=forbid` en `/v1`; `/api/wizard` (legacy) devuelve config sin aplicar | 🟡 revisar allowlist de claves de config en el merge (`partial_config`, `config_overrides`) |
